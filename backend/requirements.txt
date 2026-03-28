@@ -1,0 +1,31 @@
+# Core API
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+python-multipart==0.0.20
+pydantic-settings==2.7.0
+
+# DB
+sqlalchemy==2.0.36
+psycopg2-binary==2.9.10
+alembic==1.14.0
+
+# Auth
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+bcrypt==4.2.1
+
+# Jobs (optional; API works with FastAPI BackgroundTasks without worker)
+celery[redis]==5.4.0
+redis==5.2.1
+
+# Data / reports
+pandas==2.2.3
+openpyxl==3.1.5
+reportlab==4.2.5
+
+# Observability
+prometheus-client==0.21.1
+prometheus-fastapi-instrumentator==7.0.0
+
+# ML stack — install when needed: pip install -r requirements-ml.txt
+# (lightgbm, mlflow, scikit-learn, numpy)

@@ -1,0 +1,47 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: potential
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    environment:
+      DATABASE_URL: postgresql+psycopg2://postgres:postgres@db:5432/potential
+      REDIS_URL: redis://redis:6379/0
+      SECRET_KEY: dev-secret-change-in-prod
+      CORS_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+      - redis
+
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: celery -A app.celery_app:celery_app worker -l info
+    environment:
+      DATABASE_URL: postgresql+psycopg2://postgres:postgres@db:5432/potential
+      REDIS_URL: redis://redis:6379/0
+      CELERY_IMPORT_TASKS: "1"
+    depends_on:
+      - db
+      - redis
+
+volumes:
+  pgdata:

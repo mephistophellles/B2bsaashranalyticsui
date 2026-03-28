@@ -6,18 +6,30 @@ import Recommendations from "./components/Recommendations";
 import Departments from "./components/Departments";
 import Reports from "./components/Reports";
 import Settings from "./components/Settings";
+import Login from "./components/Login";
+import ProtectedLayout from "./components/ProtectedLayout";
+import Survey from "./components/Survey";
+import RoleHome from "./components/RoleHome";
 
 export const router = createBrowserRouter([
+  { path: "/login", Component: Login },
   {
     path: "/",
-    Component: Layout,
+    Component: ProtectedLayout,
     children: [
-      { index: true, Component: Dashboard },
-      { path: "employees", Component: Employees },
-      { path: "departments", Component: Departments },
-      { path: "reports", Component: Reports },
-      { path: "recommendations", Component: Recommendations },
-      { path: "settings", Component: Settings },
+      {
+        Component: Layout,
+        children: [
+          { index: true, Component: RoleHome },
+          { path: "dashboard", Component: Dashboard },
+          { path: "employees", Component: Employees },
+          { path: "departments", Component: Departments },
+          { path: "reports", Component: Reports },
+          { path: "recommendations", Component: Recommendations },
+          { path: "settings", Component: Settings },
+          { path: "survey", Component: Survey },
+        ],
+      },
     ],
   },
 ]);

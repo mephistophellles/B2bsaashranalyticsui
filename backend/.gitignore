@@ -1,0 +1,7 @@
+potential.db
+__pycache__/
+*.pyc
+.env
+mlruns/
+.pytest_cache/
+.venv/

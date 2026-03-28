@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import {
   TrendingUp,
   TrendingDown,
@@ -18,67 +19,75 @@ import {
   Area,
   AreaChart,
 } from "recharts";
+import { apiFetch } from "@/api/client";
 
-const essiData = [
-  { id: "jan", month: "Янв", value: 72 },
-  { id: "feb", month: "Фев", value: 75 },
-  { id: "mar", month: "Мар", value: 74 },
-  { id: "apr", month: "Апр", value: 78 },
-  { id: "may", month: "Май", value: 80 },
-  { id: "jun", month: "Июн", value: 83 },
-];
-
-const departmentData = [
-  { id: "dept1", department: "Разработка", essi: 85 },
-  { id: "dept2", department: "Продажи", essi: 78 },
-  { id: "dept3", department: "Маркетинг", essi: 82 },
-  { id: "dept4", department: "HR", essi: 80 },
-  { id: "dept5", department: "Финансы", essi: 76 },
-];
-
-const recentEmployees = [
-  { id: "emp001", name: "Сара Иванова", department: "Разработка", essi: 92, trend: "up", status: "Отлично" },
-  { id: "emp002", name: "Михаил Петров", department: "Продажи", essi: 78, trend: "up", status: "Хорошо" },
-  { id: "emp003", name: "Анна Смирнова", department: "Маркетинг", essi: 85, trend: "stable", status: "Хорошо" },
-  { id: "emp004", name: "Дмитрий Козлов", department: "Разработка", essi: 65, trend: "down", status: "Риск" },
-  { id: "emp005", name: "Елена Волкова", department: "HR", essi: 88, trend: "up", status: "Отлично" },
-];
-
-const recommendations = [
-  {
-    id: "rec001",
-    title: "Тимбилдинг",
-    description: "Команда разработки показывает снижение уровня взаимодействия",
-    priority: "high",
-    status: "Новая",
-  },
-  {
-    id: "rec002",
-    title: "План развития карьеры",
-    description: "3 сотрудника близки к повышению",
-    priority: "medium",
-    status: "В работе",
-  },
-  {
-    id: "rec003",
-    title: "Балансировка нагрузки",
-    description: "Отдел продаж сообщает о высоком уровне стресса",
-    priority: "high",
-    status: "Новая",
-  },
-];
+type DashboardPayload = {
+  essi_index: number;
+  essi_delta_pct: number;
+  engagement_pct: number;
+  engagement_delta_pct: number;
+  risk_level: string;
+  risk_employees_delta_pct: number;
+  productivity_pct: number;
+  productivity_delta_pct: number;
+  essi_series: { id: string; month: string; value: number }[];
+  department_bars: { id: string; department: string; essi: number }[];
+  recent_employees: {
+    id: string;
+    name: string;
+    department: string;
+    essi: number;
+    trend: string;
+    status: string;
+  }[];
+  recommendations_preview: {
+    id: string;
+    title: string;
+    description: string;
+    priority: string;
+    status: string;
+  }[];
+};
 
 export default function Dashboard() {
+  const [data, setData] = useState<DashboardPayload | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    void (async () => {
+      const res = await apiFetch("/reports/dashboard");
+      if (!res.ok) {
+        setError("Не удалось загрузить дашборд");
+        return;
+      }
+      setData(await res.json());
+    })();
+  }, []);
+
+  if (error) {
+    return <div className="p-6 text-red-600">{error}</div>;
+  }
+  if (!data) {
+    return (
+      <div className="p-6 text-gray-500 flex items-center justify-center min-h-[40vh]">
+        Загрузка…
+      </div>
+    );
+  }
+
+  const essiData = data.essi_series;
+  const departmentData = data.department_bars;
+  const recentEmployees = data.recent_employees;
+  const recommendations = data.recommendations_preview;
+
   return (
     <div className="p-6 space-y-6">
-      {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* ESSI Index */}
         <div className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-shadow">
           <div className="flex items-start justify-between mb-3">
             <div>
               <div className="text-sm text-gray-600 mb-1">Индекс ESSI</div>
-              <div className="text-3xl font-bold text-gray-900">83</div>
+              <div className="text-3xl font-bold text-gray-900">{data.essi_index}</div>
             </div>
             <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center">
               <Activity className="text-[#0052FF]" size={20} />
@@ -87,9 +96,10 @@ export default function Dashboard() {
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-1 text-green-600">
               <TrendingUp size={16} />
-              <span className="text-sm font-medium">+5.2%</span>
+              <span className="text-sm font-medium">{data.essi_delta_pct > 0 ? "+" : ""}
+                {data.essi_delta_pct}%</span>
             </div>
-            <span className="text-xs text-gray-500">к прошлому месяцу</span>
+            <span className="text-xs text-gray-500">к прошлому периоду</span>
           </div>
           <div className="mt-3" style={{ height: 48 }}>
             <ResponsiveContainer width="100%" height={48}>
@@ -112,12 +122,11 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Engagement Score */}
         <div className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-shadow">
           <div className="flex items-start justify-between mb-3">
             <div>
               <div className="text-sm text-gray-600 mb-1">Вовлеченность</div>
-              <div className="text-3xl font-bold text-gray-900">78%</div>
+              <div className="text-3xl font-bold text-gray-900">{data.engagement_pct}%</div>
             </div>
             <div className="w-10 h-10 rounded-lg bg-green-50 flex items-center justify-center">
               <Users className="text-green-600" size={20} />
@@ -126,13 +135,13 @@ export default function Dashboard() {
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-1 text-green-600">
               <TrendingUp size={16} />
-              <span className="text-sm font-medium">+2.8%</span>
+              <span className="text-sm font-medium">+{data.engagement_delta_pct}%</span>
             </div>
-            <span className="text-xs text-gray-500">к прошлому месяцу</span>
+            <span className="text-xs text-gray-500">к прошлому периоду</span>
           </div>
           <div className="mt-3" style={{ height: 48 }}>
             <ResponsiveContainer width="100%" height={48}>
-              <AreaChart data={essiData.map(d => ({ ...d, value: d.value - 5 }))}>
+              <AreaChart data={essiData.map((d) => ({ ...d, value: d.value - 5 }))}>
                 <defs>
                   <linearGradient id="engagementSparklineGradient" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor="#10B981" stopOpacity={0.2} />
@@ -151,12 +160,11 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Risk Level */}
         <div className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-shadow">
           <div className="flex items-start justify-between mb-3">
             <div>
               <div className="text-sm text-gray-600 mb-1">Уровень риска</div>
-              <div className="text-3xl font-bold text-gray-900">Низкий</div>
+              <div className="text-3xl font-bold text-gray-900">{data.risk_level}</div>
             </div>
             <div className="w-10 h-10 rounded-lg bg-yellow-50 flex items-center justify-center">
               <AlertTriangle className="text-yellow-600" size={20} />
@@ -165,26 +173,17 @@ export default function Dashboard() {
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-1 text-green-600">
               <TrendingDown size={16} />
-              <span className="text-sm font-medium">-12%</span>
+              <span className="text-sm font-medium">{data.risk_employees_delta_pct}%</span>
             </div>
             <span className="text-xs text-gray-500">сотрудников в зоне риска</span>
           </div>
-          <div className="mt-3">
-            <div className="text-xs text-gray-600 mb-1">Распределение рисков</div>
-            <div className="flex gap-1 h-2">
-              <div className="flex-1 bg-red-400 rounded-full" style={{ flex: 0.05 }}></div>
-              <div className="flex-1 bg-yellow-400 rounded-full" style={{ flex: 0.15 }}></div>
-              <div className="flex-1 bg-green-400 rounded-full" style={{ flex: 0.8 }}></div>
-            </div>
-          </div>
         </div>
 
-        {/* Productivity */}
         <div className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-shadow">
           <div className="flex items-start justify-between mb-3">
             <div>
               <div className="text-sm text-gray-600 mb-1">Продуктивность</div>
-              <div className="text-3xl font-bold text-gray-900">92%</div>
+              <div className="text-3xl font-bold text-gray-900">{data.productivity_pct}%</div>
             </div>
             <div className="w-10 h-10 rounded-lg bg-purple-50 flex items-center justify-center">
               <Activity className="text-purple-600" size={20} />
@@ -193,13 +192,13 @@ export default function Dashboard() {
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-1 text-green-600">
               <TrendingUp size={16} />
-              <span className="text-sm font-medium">+3.5%</span>
+              <span className="text-sm font-medium">+{data.productivity_delta_pct}%</span>
             </div>
-            <span className="text-xs text-gray-500">к прошлому месяцу</span>
+            <span className="text-xs text-gray-500">к прошлому периоду</span>
           </div>
           <div className="mt-3" style={{ height: 48 }}>
             <ResponsiveContainer width="100%" height={48}>
-              <AreaChart data={essiData.map(d => ({ ...d, value: d.value + 10 }))}>
+              <AreaChart data={essiData.map((d) => ({ ...d, value: d.value + 10 }))}>
                 <defs>
                   <linearGradient id="productivitySparklineGradient" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor="#8B5CF6" stopOpacity={0.2} />
@@ -219,9 +218,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* ESSI Over Time */}
         <div className="bg-white rounded-xl border border-gray-200 p-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Динамика ESSI</h2>
           <ResponsiveContainer width="100%" height={300}>
@@ -248,11 +245,8 @@ export default function Dashboard() {
           </ResponsiveContainer>
         </div>
 
-        {/* Department Comparison */}
         <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">
-            Сравнение отделов
-          </h2>
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Сравнение отделов</h2>
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={departmentData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
@@ -271,32 +265,18 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Bottom Section */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Employee Table */}
         <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">
-            Последние обновления
-          </h2>
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Последние обновления</h2>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="border-b border-gray-200">
-                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-600">
-                    Имя
-                  </th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-600">
-                    Отдел
-                  </th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-600">
-                    ESSI
-                  </th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-600">
-                    Статус
-                  </th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-600">
-                    Тренд
-                  </th>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-600">Имя</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-600">Отдел</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-600">ESSI</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-600">Статус</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-600">Тренд</th>
                 </tr>
               </thead>
               <tbody>
@@ -305,28 +285,22 @@ export default function Dashboard() {
                     key={employee.id}
                     className="border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer"
                   >
-                    <td className="py-3 px-4 text-sm font-medium text-gray-900">
-                      {employee.name}
-                    </td>
-                    <td className="py-3 px-4 text-sm text-gray-600">
-                      {employee.department}
-                    </td>
+                    <td className="py-3 px-4 text-sm font-medium text-gray-900">{employee.name}</td>
+                    <td className="py-3 px-4 text-sm text-gray-600">{employee.department}</td>
                     <td className="py-3 px-4">
                       <span
                         className={`inline-flex items-center px-2.5 py-1 rounded-full text-sm font-medium ${
                           employee.essi >= 85
                             ? "bg-green-100 text-green-700"
                             : employee.essi >= 70
-                            ? "bg-yellow-100 text-yellow-700"
-                            : "bg-red-100 text-red-700"
+                              ? "bg-yellow-100 text-yellow-700"
+                              : "bg-red-100 text-red-700"
                         }`}
                       >
                         {employee.essi}
                       </span>
                     </td>
-                    <td className="py-3 px-4 text-sm text-gray-600">
-                      {employee.status}
-                    </td>
+                    <td className="py-3 px-4 text-sm text-gray-600">{employee.status}</td>
                     <td className="py-3 px-4">
                       {employee.trend === "up" && (
                         <TrendingUp className="text-green-600" size={18} />
@@ -335,7 +309,7 @@ export default function Dashboard() {
                         <TrendingDown className="text-red-600" size={18} />
                       )}
                       {employee.trend === "stable" && (
-                        <div className="w-4 h-0.5 bg-gray-400"></div>
+                        <div className="w-4 h-0.5 bg-gray-400" />
                       )}
                     </td>
                   </tr>
@@ -345,11 +319,8 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Recommendations Panel */}
         <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">
-            Рекомендации ИИ
-          </h2>
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Рекомендации ИИ</h2>
           <div className="space-y-3">
             {recommendations.map((rec) => (
               <div
@@ -357,9 +328,7 @@ export default function Dashboard() {
                 className="p-4 border border-gray-200 rounded-lg hover:border-[#0052FF] transition-colors cursor-pointer"
               >
                 <div className="flex items-start justify-between mb-2">
-                  <h3 className="font-medium text-gray-900 text-sm">
-                    {rec.title}
-                  </h3>
+                  <h3 className="font-medium text-gray-900 text-sm">{rec.title}</h3>
                   <span
                     className={`px-2 py-0.5 rounded-full text-xs font-medium ${
                       rec.priority === "high"

@@ -1,11 +1,7 @@
+# Потенциал — HR Analytics
 
-  # B2B SaaS HR Analytics UI
+- **Frontend:** `npm install` → `npm run dev` (прокси `/api` → `http://127.0.0.1:8000`).
+- **Backend:** см. `backend/README.md` — `uvicorn app.main:app --port 8000`, перед этим `python -m scripts.seed`.
+- **Docker:** `docker compose up --build`.
 
-  This is a code bundle for B2B SaaS HR Analytics UI. The original project is available at https://www.figma.com/design/odrQyRzhmza7JovQdh6LMq/B2B-SaaS-HR-Analytics-UI.
-
-  ## Running the code
-
-  Run `npm i` to install the dependencies.
-
-  Run `npm run dev` to start the development server.
-  
+Учётки: `manager`/`manager123`, `employee`/`employee123`.
