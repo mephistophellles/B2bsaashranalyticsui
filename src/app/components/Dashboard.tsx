@@ -79,9 +79,20 @@ export default function Dashboard() {
   const departmentData = data.department_bars;
   const recentEmployees = data.recent_employees;
   const recommendations = data.recommendations_preview;
+  const sparseData =
+    data.department_bars.length === 0 && data.recent_employees.length === 0;
 
   return (
     <div className="p-6 space-y-6">
+      {sparseData && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50/90 px-4 py-3 text-sm text-amber-950 shadow-sm">
+          <strong className="font-semibold">Мало данных.</strong> Выполните{" "}
+          <code className="text-xs bg-white/80 px-1.5 py-0.5 rounded border border-amber-200">
+            python -m scripts.seed
+          </code>{" "}
+          в каталоге backend или загрузите CSV на странице «Отчёты».
+        </div>
+      )}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-shadow">
           <div className="flex items-start justify-between mb-3">

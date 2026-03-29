@@ -53,3 +53,34 @@ export async function fetchMe(token: string) {
   if (!res.ok) throw new Error("me failed");
   return res.json() as Promise<UserMe>;
 }
+
+export function sleep(ms: number) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+/** Скачивание файла с авторизацией (blob). */
+export async function downloadWithAuth(path: string, filename: string) {
+  const res = await apiFetch(path);
+  if (!res.ok) throw new Error("Не удалось скачать файл");
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.rel = "noopener";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+export async function parseErrorMessage(res: Response): Promise<string> {
+  try {
+    const j = (await res.json()) as { detail?: string | unknown };
+    if (typeof j.detail === "string") return j.detail;
+    if (Array.isArray(j.detail)) return JSON.stringify(j.detail);
+  } catch {
+    /* ignore */
+  }
+  return res.statusText || `Ошибка ${res.status}`;
+}

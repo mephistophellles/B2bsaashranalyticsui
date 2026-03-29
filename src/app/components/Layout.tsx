@@ -26,6 +26,7 @@ const managerMenu = [
 const employeeMenu = [
   { path: "/", label: "Главная", icon: LayoutDashboard },
   { path: "/survey", label: "Опрос", icon: ClipboardList },
+  { path: "/my-recommendations", label: "Рекомендации", icon: Lightbulb },
   { path: "/settings", label: "Настройки", icon: Settings },
 ];
 
@@ -68,7 +69,7 @@ export default function Layout() {
               <Link
                 key={item.path}
                 to={item.path}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all ${
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all ${
                   active
                     ? "bg-gradient-to-r from-[#0052FF] to-[#4D7CFF] text-white shadow-sm"
                     : "text-gray-700 hover:bg-gray-100"

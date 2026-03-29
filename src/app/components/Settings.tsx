@@ -1,247 +1,157 @@
-import { Settings as SettingsIcon, User, Bell, Shield, Globe, Database, Mail } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Settings as SettingsIcon, User, Shield } from "lucide-react";
+import { apiFetch, parseErrorMessage } from "@/api/client";
+import type { UserMe } from "@/api/client";
+import { useAuth } from "@/auth/AuthContext";
+
+function AdminCreateUser() {
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [role, setRole] = useState<"employee" | "manager" | "admin">("employee");
+  const [employeeId, setEmployeeId] = useState("");
+  const [msg, setMsg] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setMsg(null);
+    setBusy(true);
+    try {
+      const body: Record<string, unknown> = { username, password, role };
+      const eid = employeeId.trim();
+      if (eid) body.employee_id = Number(eid);
+      const res = await apiFetch("/admin/users", {
+        method: "POST",
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        setMsg(await parseErrorMessage(res));
+        return;
+      }
+      setMsg("Пользователь создан");
+      setUsername("");
+      setPassword("");
+      setEmployeeId("");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm space-y-4">
+      <h2 className="text-lg font-semibold flex items-center gap-2">
+        <Shield size={20} className="text-[#0052FF]" />
+        Администрирование
+      </h2>
+      <p className="text-sm text-gray-600">
+        Создание учётной записи. Для сотрудника укажите <code className="text-xs bg-gray-100 px-1 rounded">employee_id</code> из БД.
+      </p>
+      <form onSubmit={onSubmit} className="space-y-3 max-w-md">
+        <input
+          className="w-full border rounded-xl px-3 py-2"
+          placeholder="Логин"
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+          required
+        />
+        <input
+          type="password"
+          className="w-full border rounded-xl px-3 py-2"
+          placeholder="Пароль (мин. 6 символов)"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+          minLength={6}
+        />
+        <select
+          className="w-full border rounded-xl px-3 py-2"
+          value={role}
+          onChange={(e) => setRole(e.target.value as typeof role)}
+        >
+          <option value="employee">Сотрудник</option>
+          <option value="manager">Руководитель</option>
+          <option value="admin">Администратор</option>
+        </select>
+        <input
+          className="w-full border rounded-xl px-3 py-2"
+          placeholder="employee_id (необязательно)"
+          value={employeeId}
+          onChange={(e) => setEmployeeId(e.target.value)}
+        />
+        <button
+          type="submit"
+          disabled={busy}
+          className="px-4 py-2 rounded-xl bg-[#0052FF] text-white font-medium disabled:opacity-50"
+        >
+          {busy ? "Создание…" : "Создать пользователя"}
+        </button>
+        {msg && <p className="text-sm text-gray-700">{msg}</p>}
+      </form>
+      <p className="text-xs text-gray-400">
+        Полный аудит: откройте Swagger <code className="bg-gray-100 px-1 rounded">/docs</code> → GET /api/audit/logs (только admin).
+      </p>
+    </div>
+  );
+}
 
 export default function Settings() {
+  const { user } = useAuth();
+  const [me, setMe] = useState<UserMe | null>(null);
+
+  useEffect(() => {
+    void (async () => {
+      const res = await apiFetch("/auth/me");
+      if (res.ok) setMe(await res.json());
+    })();
+  }, []);
+
   return (
-    <div className="p-6">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Настройки</h1>
-        <p className="text-gray-600">
-          Управление настройками приложения и профилем
+    <div className="p-6 space-y-8 max-w-3xl">
+      <div className="flex items-center gap-3">
+        <div className="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center">
+          <SettingsIcon className="text-[#0052FF]" size={26} />
+        </div>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Настройки</h1>
+          <p className="text-gray-600 text-sm">Профиль и администрирование</p>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm space-y-4">
+        <h2 className="text-lg font-semibold flex items-center gap-2">
+          <User size={20} className="text-[#0052FF]" />
+          Профиль
+        </h2>
+        {me ? (
+          <dl className="grid gap-2 text-sm">
+            <div className="flex gap-2">
+              <dt className="text-gray-500 w-28">Логин</dt>
+              <dd className="font-medium text-gray-900">{me.username}</dd>
+            </div>
+            <div className="flex gap-2">
+              <dt className="text-gray-500 w-28">Роль</dt>
+              <dd className="font-medium text-gray-900">{me.role}</dd>
+            </div>
+            {me.employee_id != null && (
+              <div className="flex gap-2">
+                <dt className="text-gray-500 w-28">employee_id</dt>
+                <dd className="font-medium text-gray-900">{me.employee_id}</dd>
+              </div>
+            )}
+          </dl>
+        ) : (
+          <p className="text-sm text-gray-500">Загрузка…</p>
+        )}
+        <p className="text-xs text-gray-400 pt-2 border-t border-gray-100">
+          Смена пароля и редактирование контактов — запланированы в следующей итерации (нужен эндпоинт на бэкенде).
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Settings Navigation */}
-        <div className="lg:col-span-1">
-          <div className="bg-white rounded-xl border border-gray-200 p-4">
-            <nav className="space-y-1">
-              <button className="w-full flex items-center gap-3 px-4 py-3 rounded-lg bg-gradient-to-r from-[#0052FF] to-[#4D7CFF] text-white">
-                <User size={20} />
-                <span className="font-medium">Профиль</span>
-              </button>
-              <button className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors">
-                <Bell size={20} />
-                <span className="font-medium">Уведомления</span>
-              </button>
-              <button className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors">
-                <Shield size={20} />
-                <span className="font-medium">Безопасность</span>
-              </button>
-              <button className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors">
-                <Globe size={20} />
-                <span className="font-medium">Язык и регион</span>
-              </button>
-              <button className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors">
-                <Database size={20} />
-                <span className="font-medium">Интеграции</span>
-              </button>
-            </nav>
-          </div>
-        </div>
+      {user?.role === "admin" && <AdminCreateUser />}
 
-        {/* Settings Content */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Profile Settings */}
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">
-              Информация профиля
-            </h2>
-            <div className="space-y-4">
-              <div className="flex items-center gap-4">
-                <div className="w-20 h-20 rounded-full bg-gradient-to-r from-[#0052FF] to-[#4D7CFF] flex items-center justify-center text-white text-2xl font-semibold">
-                  ИИ
-                </div>
-                <div className="flex-1">
-                  <button className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium">
-                    Изменить фото
-                  </button>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Имя
-                  </label>
-                  <input
-                    type="text"
-                    defaultValue="Иван"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0052FF] focus:border-transparent"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Фамилия
-                  </label>
-                  <input
-                    type="text"
-                    defaultValue="Иванов"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0052FF] focus:border-transparent"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Email
-                </label>
-                <input
-                  type="email"
-                  defaultValue="ivan.ivanov@company.com"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0052FF] focus:border-transparent"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Должность
-                </label>
-                <input
-                  type="text"
-                  defaultValue="HR-менеджер"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0052FF] focus:border-transparent"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Отдел
-                </label>
-                <select className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0052FF] focus:border-transparent bg-white">
-                  <option>HR</option>
-                  <option>Разработка</option>
-                  <option>Продажи</option>
-                  <option>Маркетинг</option>
-                  <option>Финансы</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3 mt-6 pt-6 border-t border-gray-200">
-              <button className="px-6 py-2 bg-gradient-to-r from-[#0052FF] to-[#4D7CFF] text-white rounded-lg hover:shadow-lg transition-all font-medium">
-                Сохранить изменения
-              </button>
-              <button className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium">
-                Отмена
-              </button>
-            </div>
-          </div>
-
-          {/* Notification Settings */}
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">
-              Настройки уведомлений
-            </h2>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between py-3 border-b border-gray-100">
-                <div className="flex items-center gap-3">
-                  <Mail className="text-gray-400" size={20} />
-                  <div>
-                    <div className="font-medium text-gray-900">Email уведомления</div>
-                    <div className="text-sm text-gray-600">
-                      Получать важные обновления на email
-                    </div>
-                  </div>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input type="checkbox" className="sr-only peer" defaultChecked />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                </label>
-              </div>
-
-              <div className="flex items-center justify-between py-3 border-b border-gray-100">
-                <div className="flex items-center gap-3">
-                  <Bell className="text-gray-400" size={20} />
-                  <div>
-                    <div className="font-medium text-gray-900">Push уведомления</div>
-                    <div className="text-sm text-gray-600">
-                      Уведомления в браузере
-                    </div>
-                  </div>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input type="checkbox" className="sr-only peer" defaultChecked />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                </label>
-              </div>
-
-              <div className="flex items-center justify-between py-3 border-b border-gray-100">
-                <div className="flex items-center gap-3">
-                  <SettingsIcon className="text-gray-400" size={20} />
-                  <div>
-                    <div className="font-medium text-gray-900">Еженедельные отчеты</div>
-                    <div className="text-sm text-gray-600">
-                      Получать сводку за неделю
-                    </div>
-                  </div>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input type="checkbox" className="sr-only peer" />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                </label>
-              </div>
-
-              <div className="flex items-center justify-between py-3">
-                <div className="flex items-center gap-3">
-                  <Shield className="text-gray-400" size={20} />
-                  <div>
-                    <div className="font-medium text-gray-900">Оповещения о рисках</div>
-                    <div className="text-sm text-gray-600">
-                      Уведомления о сотрудниках в зоне риска
-                    </div>
-                  </div>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input type="checkbox" className="sr-only peer" defaultChecked />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                </label>
-              </div>
-            </div>
-          </div>
-
-          {/* Language and Region */}
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">
-              Язык и регион
-            </h2>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Язык интерфейса
-                </label>
-                <select className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0052FF] focus:border-transparent bg-white">
-                  <option>Русский</option>
-                  <option>English</option>
-                  <option>Español</option>
-                  <option>Français</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Часовой пояс
-                </label>
-                <select className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0052FF] focus:border-transparent bg-white">
-                  <option>UTC+3 (Москва)</option>
-                  <option>UTC+0 (London)</option>
-                  <option>UTC-5 (New York)</option>
-                  <option>UTC-8 (Los Angeles)</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Формат даты
-                </label>
-                <select className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0052FF] focus:border-transparent bg-white">
-                  <option>ДД.ММ.ГГГГ</option>
-                  <option>ММ/ДД/ГГГГ</option>
-                  <option>ГГГГ-ММ-ДД</option>
-                </select>
-              </div>
-            </div>
-          </div>
-        </div>
+      <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50/80 p-4 text-sm text-gray-600">
+        Нет данных на дашборде? Выполните <code className="text-xs bg-white px-1 rounded border">python -m scripts.seed</code> в каталоге{" "}
+        <code className="text-xs bg-white px-1 rounded border">backend</code> или загрузите CSV на странице «Отчёты».
       </div>
     </div>
   );

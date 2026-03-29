@@ -8,20 +8,23 @@ export default function Login() {
   const [username, setUsername] = useState("manager");
   const [password, setPassword] = useState("manager123");
   const [err, setErr] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (loading || !user) return;
-    if (user.role === "employee") nav("/survey", { replace: true });
-    else nav("/", { replace: true });
+    nav("/", { replace: true });
   }, [loading, user, nav]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setErr(null);
+    setSubmitting(true);
     try {
       await login(username, password);
     } catch {
-      setErr("Не удалось войти");
+      setErr("Не удалось войти. Проверьте, что API запущен (порт 8000) и прокси Vite включён.");
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -71,9 +74,10 @@ export default function Login() {
         </div>
         <button
           type="submit"
-          className="w-full py-2.5 rounded-lg font-medium text-white bg-gradient-to-r from-[#0052FF] to-[#4D7CFF] hover:opacity-95"
+          disabled={submitting}
+          className="w-full py-2.5 rounded-xl font-semibold text-white bg-gradient-to-r from-[#0052FF] to-[#4D7CFF] hover:opacity-95 disabled:opacity-60 shadow-md"
         >
-          Войти
+          {submitting ? "Вход…" : "Войти"}
         </button>
         <p className="text-xs text-gray-400 text-center">
           Демо: manager/manager123 или employee/employee123

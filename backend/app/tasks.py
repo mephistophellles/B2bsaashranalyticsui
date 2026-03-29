@@ -100,19 +100,34 @@ def run_report_export(report_id: int) -> None:
 
         tmpdir = os.path.join(tempfile.gettempdir(), "potential_reports")
         os.makedirs(tmpdir, exist_ok=True)
-        path_pdf = os.path.join(tmpdir, f"report_{report_id}.pdf")
-        from reportlab.lib.pagesizes import A4
-        from reportlab.pdfgen import canvas
 
-        c = canvas.Canvas(path_pdf, pagesize=A4)
-        c.drawString(100, 800, "Потенциал — сводный отчёт")
-        c.drawString(100, 780, datetime.utcnow().isoformat())
-        c.showPage()
-        c.save()
+        if rep.kind in ("summary_excel", "excel"):
+            from app.services.essi import organization_avg_essi
 
-        rep.status = JobStatus.success
-        rep.file_path = path_pdf
-        rep.detail = "PDF generated"
+            path_xlsx = os.path.join(tmpdir, f"report_{report_id}.xlsx")
+            avg = organization_avg_essi(db)
+            pd.DataFrame(
+                [
+                    {"Показатель": "Средний ESSI организации", "Значение": avg if avg is not None else ""},
+                    {"Показатель": "Сформировано", "Значение": datetime.utcnow().isoformat()},
+                ]
+            ).to_excel(path_xlsx, index=False)
+            rep.status = JobStatus.success
+            rep.file_path = path_xlsx
+            rep.detail = "Excel generated"
+        else:
+            path_pdf = os.path.join(tmpdir, f"report_{report_id}.pdf")
+            from reportlab.lib.pagesizes import A4
+            from reportlab.pdfgen import canvas
+
+            c = canvas.Canvas(path_pdf, pagesize=A4)
+            c.drawString(100, 800, "Потенциал — сводный отчёт")
+            c.drawString(100, 780, datetime.utcnow().isoformat())
+            c.showPage()
+            c.save()
+            rep.status = JobStatus.success
+            rep.file_path = path_pdf
+            rep.detail = "PDF generated"
         db.commit()
     except Exception as e:
         db.rollback()

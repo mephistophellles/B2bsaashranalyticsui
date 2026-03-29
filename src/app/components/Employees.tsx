@@ -126,6 +126,17 @@ export default function Employees() {
         </div>
       </div>
 
+      {employeesData.length === 0 && (
+        <div className="rounded-2xl border border-dashed border-gray-200 bg-white p-8 text-center text-gray-500 mb-6">
+          Сотрудники не найдены. Запустите seed или проверьте API.
+        </div>
+      )}
+      {employeesData.length > 0 && filteredEmployees.length === 0 && (
+        <div className="rounded-2xl border border-gray-200 bg-gray-50 p-6 text-center text-gray-600 mb-6 text-sm">
+          Нет сотрудников по выбранным фильтрам.
+        </div>
+      )}
+
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">

@@ -25,6 +25,11 @@ export default function Departments() {
         <h1 className="text-2xl font-bold text-gray-900 mb-2">Отделы</h1>
         <p className="text-gray-600">Сводка по отделам и среднему ESSI</p>
       </div>
+      {rows.length === 0 && (
+        <div className="rounded-2xl border border-dashed border-gray-200 bg-white p-8 text-center text-gray-500">
+          Нет отделов в базе. Выполните seed или создайте данные через импорт.
+        </div>
+      )}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {rows.map((d) => (
           <div

@@ -1,8 +1,13 @@
+import logging
+import os
+import warnings
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from prometheus_fastapi_instrumentator import Instrumentator
 
-from app.config import settings
+from app.bootstrap import ensure_local_demo_accounts
+from app.config import INSECURE_DEFAULT_SECRET_KEY, settings
 from app.database import Base, engine
 from app.routers import (
     admin,
@@ -51,9 +56,27 @@ app.include_router(audit.router, prefix="/api")
 Instrumentator().instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
 
 
+def _should_warn_insecure_secret() -> bool:
+    if settings.secret_key != INSECURE_DEFAULT_SECRET_KEY:
+        return False
+    url = settings.database_url.lower()
+    if "postgresql" in url or "postgres" in url:
+        return True
+    return os.environ.get("POTENTIAL_ENV", "").lower() == "production"
+
+
 @app.on_event("startup")
 def startup():
     Base.metadata.create_all(bind=engine)
+    ensure_local_demo_accounts()
+    if _should_warn_insecure_secret():
+        warnings.warn(
+            "SECRET_KEY не задан: задайте переменную окружения SECRET_KEY для продакшена.",
+            stacklevel=1,
+        )
+        logging.getLogger("uvicorn.error").warning(
+            "SECRET_KEY default — задайте SECRET_KEY в окружении."
+        )
 
 
 @app.get("/health")
