@@ -1,4 +1,4 @@
-"""ESSI calculation per TZ: sum of block scores / max_points * 100."""
+"""ESSI / ИСУР: сумма score_block1..5 (суммы баллов по блокам) / 125 × 100 (методика, 5×5 Лайкерт)."""
 
 from sqlalchemy.orm import Session
 
@@ -19,6 +19,19 @@ def block_scores_from_survey(s: Survey) -> list[float]:
 def essi_from_blocks(block_scores: list[float]) -> float:
     total = sum(block_scores)
     return round(total / settings.max_essi_points * 100.0, 2)
+
+
+def block_scores_for_target_essi(target: float) -> list[float]:
+    """Пять сумм по блокам (каждая 5–25), в сумме дают целевой ИСУР 0–100 на шкале методики."""
+    t = max(0.0, min(100.0, target))
+    total_points = t / 100.0 * settings.max_essi_points
+    base = total_points / 5.0
+    raw = [min(25.0, max(5.0, base + (j - 2) * 1.1)) for j in range(5)]
+    s = sum(raw)
+    if s <= 0:
+        return [25.0, 25.0, 25.0, 25.0, 25.0]
+    scale = total_points / s
+    return [round(min(25.0, max(5.0, x * scale)), 2) for x in raw]
 
 
 def latest_survey_per_employee(db: Session) -> dict[int, Survey]:

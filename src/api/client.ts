@@ -35,6 +35,7 @@ export async function apiFetch(
     localStorage.removeItem("token");
     window.dispatchEvent(new Event("auth:logout"));
   }
+  // 403 — нет прав; не сбрасываем сессию (иначе «страница не открывается»).
   return res;
 }
 

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -10,11 +10,15 @@ router = APIRouter(prefix="/audit", tags=["audit"])
 
 @router.get("/logs")
 def list_logs(
-    limit: int = 100,
+    limit: int = Query(100, ge=1, le=500),
+    action: str | None = Query(None, description="Фильтр по полю action (подстрока)"),
     db: Session = Depends(get_db),
     user: User = Depends(require_roles(UserRole.admin)),
 ):
-    rows = db.query(AuditLog).order_by(AuditLog.created_at.desc()).limit(limit).all()
+    q = db.query(AuditLog).order_by(AuditLog.created_at.desc())
+    if action:
+        q = q.filter(AuditLog.action.contains(action))
+    rows = q.limit(limit).all()
     return [
         {
             "id": r.id,

@@ -78,7 +78,11 @@ class DashboardResponse(BaseModel):
     engagement_pct: float
     engagement_delta_pct: float
     risk_level: str
-    risk_employees_delta_pct: float
+    risk_crisis_count: int = 0
+    risk_zone_count: int = 0
+    risk_at_risk_total: int = 0
+    risk_indexed_employees: int = 0
+    risk_employees_delta_pct: float | None = None
     productivity_pct: float
     productivity_delta_pct: float
     essi_series: list[DashboardSeriesPoint]
@@ -95,6 +99,7 @@ class SurveyBlockAnswer(BaseModel):
 class SurveySubmitRequest(BaseModel):
     employee_id: int | None = None
     survey_date: date | None = None
+    campaign_id: int | None = None
     blocks: list[SurveyBlockAnswer]
 
 
@@ -103,6 +108,16 @@ class SurveyTemplateQuestion(BaseModel):
     block_index: int
     order_in_block: int
     text: str
+
+
+class SurveyBlockTitleOut(BaseModel):
+    block_index: int = Field(ge=1, le=5)
+    title: str
+
+
+class SurveyTemplateResponse(BaseModel):
+    questions: list[SurveyTemplateQuestion]
+    block_titles: list[SurveyBlockTitleOut]
 
 
 class JobOut(BaseModel):
@@ -147,6 +162,51 @@ class EconomyResponse(BaseModel):
     loss_total: float
 
 
+class EconomyDefaultsOut(BaseModel):
+    suggested_essi: float
+    draft_fot: float | None = None
+    draft_k: float | None = None
+    draft_c_replace: float | None = None
+    draft_departed_count: int | None = None
+
+
+class EconomyDraftsPatch(BaseModel):
+    default_fot: float | None = Field(default=None, ge=0)
+    default_k: float | None = Field(default=None, ge=0)
+    default_c_replace: float | None = Field(default=None, ge=0)
+    default_departed_count: int | None = Field(default=None, ge=0)
+
+
+class SurveyCampaignCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=255)
+    starts_at: date | None = None
+    ends_at: date | None = None
+
+
+class SurveyCampaignOut(BaseModel):
+    id: int
+    name: str
+    status: str
+    starts_at: date | None
+    ends_at: date | None
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class SurveyCampaignPatch(BaseModel):
+    status: str | None = None
+
+
+class EmployeeCampaignOut(BaseModel):
+    id: int
+    name: str
+    status: str
+    starts_at: date | None
+    ends_at: date | None
+    completed: bool
+
+
 class ConsentRequest(BaseModel):
     accepted: bool
 
@@ -180,6 +240,7 @@ class EmployeeSurveyRow(BaseModel):
 class EmployeeDetailOut(EmployeeListItem):
     surveys: list[EmployeeSurveyRow] = []
     redacted: bool = False
+    has_linked_user: bool = False
 
 
 class DepartmentListItem(BaseModel):

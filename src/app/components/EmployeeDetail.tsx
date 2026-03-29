@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
-import { ArrowLeft, Trash2 } from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronRight, Trash2 } from "lucide-react";
 import { apiFetch, parseErrorMessage } from "@/api/client";
+import { essiFromBlockSums } from "@/utils/essi";
 
 type SurveyRow = {
   id: number;
@@ -29,6 +30,7 @@ type Detail = {
   join_date: string | null;
   surveys: SurveyRow[];
   redacted?: boolean;
+  has_linked_user?: boolean;
 };
 
 type Dept = { id: number; name: string };
@@ -45,6 +47,8 @@ export default function EmployeeDetail() {
   const [editEmail, setEditEmail] = useState("");
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const [deleteErr, setDeleteErr] = useState<string | null>(null);
+  const [expandedSurveyId, setExpandedSurveyId] = useState<number | null>(null);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -112,9 +116,10 @@ export default function EmployeeDetail() {
 
   async function remove() {
     if (!id || !confirm("Удалить сотрудника? Допустимо только без опросов и без учётной записи.")) return;
+    setDeleteErr(null);
     const res = await apiFetch(`/employees/${id}`, { method: "DELETE" });
     if (!res.ok) {
-      setMsg(await parseErrorMessage(res));
+      setDeleteErr(await parseErrorMessage(res));
       return;
     }
     navigate("/employees", { replace: true });
@@ -131,6 +136,9 @@ export default function EmployeeDetail() {
     );
   }
 
+  const canDelete =
+    !data.redacted && data.surveys.length === 0 && !data.has_linked_user;
+
   return (
     <div className="p-6 max-w-4xl space-y-8">
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -143,13 +151,29 @@ export default function EmployeeDetail() {
         {!data.redacted && (
           <button
             type="button"
+            disabled={!canDelete}
+            title={
+              canDelete
+                ? "Удалить карточку (без опросов и без привязанного логина)"
+                : data.surveys.length > 0
+                  ? "Сначала удалите или архивируйте историю опросов (API не позволяет удалить с опросами)"
+                  : data.has_linked_user
+                    ? "Отвяжите учётную запись пользователя от этого сотрудника"
+                    : "Удаление недоступно"
+            }
             onClick={() => void remove()}
-            className="inline-flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium text-red-700 border border-red-200 hover:bg-red-50"
+            className="inline-flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium text-red-700 border border-red-200 hover:bg-red-50 disabled:opacity-45 disabled:cursor-not-allowed disabled:hover:bg-transparent"
           >
             <Trash2 size={16} /> Удалить
           </button>
         )}
       </div>
+
+      {deleteErr && (
+        <div className="rounded-xl border border-red-200 bg-red-50 text-red-800 text-sm px-4 py-3">
+          {deleteErr}
+        </div>
+      )}
 
       <div>
         <h1 className="text-2xl font-bold text-gray-900">{data.name}</h1>
@@ -180,7 +204,8 @@ export default function EmployeeDetail() {
       {data.redacted ? (
         <div className="space-y-4">
           <p className="text-sm text-gray-600 bg-amber-50 border border-amber-100 rounded-xl px-4 py-3">
-            Режим приватности: ФИО и контакты скрыты. Можно сменить только отдел; удаление недоступно.
+            Режим приватности: ФИО и контакты скрыты. Можно сменить только отдел. Удаление карточки в этом
+            режиме недоступно.
           </p>
           <form
             onSubmit={(e) => void saveEdit(e)}
@@ -280,23 +305,64 @@ export default function EmployeeDetail() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-gray-50 border-b">
+                  <th className="text-left py-2 px-2 w-10" aria-hidden />
                   <th className="text-left py-2 px-4">Дата</th>
                   <th className="text-left py-2 px-4">Источник</th>
-                  <th className="text-left py-2 px-4">Блоки 1–5</th>
+                  <th className="text-left py-2 px-4">Блоки 1–5 (суммы)</th>
                 </tr>
               </thead>
               <tbody>
-                {data.surveys.map((s) => (
-                  <tr key={s.id} className="border-b border-gray-100">
-                    <td className="py-2 px-4">{s.survey_date}</td>
-                    <td className="py-2 px-4">{s.source}</td>
-                    <td className="py-2 px-4 font-mono text-xs">
-                      {s.score_block1.toFixed(1)} · {s.score_block2.toFixed(1)} ·{" "}
-                      {s.score_block3.toFixed(1)} · {s.score_block4.toFixed(1)} ·{" "}
-                      {s.score_block5.toFixed(1)}
-                    </td>
-                  </tr>
-                ))}
+                {data.surveys.map((s) => {
+                  const open = expandedSurveyId === s.id;
+                  const surveyEssi = essiFromBlockSums(
+                    s.score_block1,
+                    s.score_block2,
+                    s.score_block3,
+                    s.score_block4,
+                    s.score_block5,
+                  );
+                  return (
+                    <Fragment key={s.id}>
+                      <tr
+                        role="button"
+                        tabIndex={0}
+                        className="border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors"
+                        onClick={() => setExpandedSurveyId((x) => (x === s.id ? null : s.id))}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ")
+                            setExpandedSurveyId((x) => (x === s.id ? null : s.id));
+                        }}
+                      >
+                        <td className="py-2 px-2 text-gray-500">
+                          {open ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
+                        </td>
+                        <td className="py-2 px-4">{s.survey_date}</td>
+                        <td className="py-2 px-4">{s.source === "ui" ? "В интерфейсе" : s.source}</td>
+                        <td className="py-2 px-4 font-mono text-xs">
+                          {s.score_block1.toFixed(1)} · {s.score_block2.toFixed(1)} ·{" "}
+                          {s.score_block3.toFixed(1)} · {s.score_block4.toFixed(1)} ·{" "}
+                          {s.score_block5.toFixed(1)}
+                        </td>
+                      </tr>
+                      {open && (
+                        <tr className="bg-slate-50 border-b border-gray-100">
+                          <td colSpan={4} className="px-4 py-3 text-sm text-gray-700">
+                            <div className="font-semibold text-gray-900 mb-2">
+                              ИСУР по этому опросу: {surveyEssi} (сумма блоков / 125 × 100)
+                            </div>
+                            <ul className="list-disc list-inside space-y-1 text-gray-600">
+                              <li>Блок 1: {s.score_block1.toFixed(1)}</li>
+                              <li>Блок 2: {s.score_block2.toFixed(1)}</li>
+                              <li>Блок 3: {s.score_block3.toFixed(1)}</li>
+                              <li>Блок 4: {s.score_block4.toFixed(1)}</li>
+                              <li>Блок 5: {s.score_block5.toFixed(1)}</li>
+                            </ul>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  );
+                })}
               </tbody>
             </table>
           </div>

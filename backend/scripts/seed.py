@@ -7,6 +7,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.auth import hash_password
+from app.data.survey_methodology import seed_methodology_questions
 from app.database import Base, SessionLocal, engine
 from app.models import (
     AuditLog,
@@ -16,11 +17,12 @@ from app.models import (
     IndexRecord,
     Recommendation,
     Survey,
+    SurveyCampaign,
     SurveyQuestion,
     User,
     UserRole,
 )
-from app.services.essi import recompute_indices
+from app.services.essi import block_scores_for_target_essi, recompute_indices
 from app.services.recommendations_engine import generate_rule_based
 
 
@@ -32,6 +34,7 @@ def main():
         db.query(ConsentRecord).delete()
         db.query(User).delete()
         db.query(Survey).delete()
+        db.query(SurveyCampaign).delete()
         db.query(IndexRecord).delete()
         db.query(Recommendation).delete()
         db.query(Employee).delete()
@@ -76,10 +79,11 @@ def main():
         base = date.today() - timedelta(days=180)
         months = [base + timedelta(days=30 * i) for i in range(6)]
         for mi, m in enumerate(months):
-            for i, e in enumerate(emps):
-                delta = mi * 0.3
-                raw = 18 + (i % 3) + delta
-                b = [min(5.0, raw / 5 + j * 0.1) for j in range(5)]
+            for e, spec in zip(emps, employees_spec):
+                *_, target_essi = spec
+                trend = mi * 0.9
+                month_target = max(22.0, min(96.0, float(target_essi) - 6.0 + trend))
+                b = block_scores_for_target_essi(month_target)
                 db.add(
                     Survey(
                         employee_id=e.id,
@@ -123,15 +127,7 @@ def main():
         )
         db.commit()
 
-        for b in range(1, 6):
-            db.add(
-                SurveyQuestion(
-                    block_index=b,
-                    order_in_block=1,
-                    text=f"Блок {b}: оцените согласие (1–5)",
-                )
-            )
-        db.commit()
+        seed_methodology_questions(db)
         print("Seed OK: manager/manager123, admin/admin123, employee/employee123")
     finally:
         db.close()

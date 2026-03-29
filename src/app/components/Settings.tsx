@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
-import { Settings as SettingsIcon, User, Shield, KeyRound } from "lucide-react";
+import { Link } from "react-router";
+import { Settings as SettingsIcon, User, Shield, KeyRound, ScrollText } from "lucide-react";
 import { apiFetch, parseErrorMessage } from "@/api/client";
-import type { UserMe } from "@/api/client";
 import { useAuth } from "@/auth/AuthContext";
+
+type EmpOpt = { id: number; name: string; department: string };
 
 function ChangePasswordBlock() {
   const [current, setCurrent] = useState("");
@@ -40,6 +42,13 @@ function ChangePasswordBlock() {
       setBusy(false);
     }
   }
+
+  const msgClass =
+    msg == null
+      ? ""
+      : msg.includes("обновлён")
+        ? "text-green-700 bg-green-50 border border-green-100 rounded-lg px-3 py-2"
+        : "text-red-700 bg-red-50 border border-red-100 rounded-lg px-3 py-2";
 
   return (
     <div className="pt-4 border-t border-gray-100 space-y-3">
@@ -80,8 +89,112 @@ function ChangePasswordBlock() {
         >
           {busy ? "Сохранение…" : "Обновить пароль"}
         </button>
-        {msg && <p className="text-xs text-gray-600">{msg}</p>}
+        {msg && <p className={`text-xs ${msgClass}`}>{msg}</p>}
       </form>
+    </div>
+  );
+}
+
+type AuditRow = {
+  id: number;
+  user_id: number | null;
+  action: string;
+  entity: string | null;
+  meta: Record<string, unknown> | null;
+  created_at: string;
+};
+
+function AdminAuditLog() {
+  const [rows, setRows] = useState<AuditRow[]>([]);
+  const [actionFilter, setActionFilter] = useState("");
+  const [err, setErr] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function load() {
+    setBusy(true);
+    setErr(null);
+    try {
+      const q = new URLSearchParams({ limit: "200" });
+      if (actionFilter.trim()) q.set("action", actionFilter.trim());
+      const res = await apiFetch(`/audit/logs?${q}`);
+      if (!res.ok) {
+        setErr(await parseErrorMessage(res));
+        setRows([]);
+        return;
+      }
+      setRows(await res.json());
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  useEffect(() => {
+    void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- initial load only
+  }, []);
+
+  return (
+    <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm space-y-4">
+      <h2 className="text-lg font-semibold flex items-center gap-2">
+        <ScrollText size={20} className="text-[#0052FF]" />
+        Журнал аудита
+      </h2>
+      <p className="text-sm text-gray-600">
+        События API (создание пользователей, опросы, отчёты и т.д.). Обновление по кнопке.
+      </p>
+      <div className="flex flex-wrap gap-2 items-end">
+        <label className="text-sm text-gray-600 flex flex-col gap-1">
+          Фильтр по действию
+          <input
+            className="border rounded-xl px-3 py-2 w-56"
+            placeholder="например survey_submit"
+            value={actionFilter}
+            onChange={(e) => setActionFilter(e.target.value)}
+          />
+        </label>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => void load()}
+          className="px-4 py-2 rounded-xl border border-gray-300 font-medium hover:bg-gray-50 disabled:opacity-50"
+        >
+          {busy ? "Загрузка…" : "Обновить"}
+        </button>
+      </div>
+      {err && <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl px-3 py-2">{err}</p>}
+      <div className="border border-gray-200 rounded-xl overflow-hidden overflow-x-auto max-h-[28rem] overflow-y-auto">
+        <table className="w-full text-xs text-left">
+          <thead className="bg-gray-50 sticky top-0 z-10">
+            <tr>
+              <th className="px-3 py-2 font-medium text-gray-600">Время (UTC)</th>
+              <th className="px-3 py-2 font-medium text-gray-600">Действие</th>
+              <th className="px-3 py-2 font-medium text-gray-600">Сущность</th>
+              <th className="px-3 py-2 font-medium text-gray-600">user_id</th>
+              <th className="px-3 py-2 font-medium text-gray-600">meta</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {rows.length === 0 && !busy && (
+              <tr>
+                <td colSpan={5} className="px-3 py-6 text-center text-gray-500">
+                  Нет записей
+                </td>
+              </tr>
+            )}
+            {rows.map((r) => (
+              <tr key={r.id} className="hover:bg-gray-50/80">
+                <td className="px-3 py-2 whitespace-nowrap text-gray-700">{r.created_at}</td>
+                <td className="px-3 py-2 font-mono text-gray-900">{r.action}</td>
+                <td className="px-3 py-2 text-gray-600">{r.entity ?? "—"}</td>
+                <td className="px-3 py-2 tabular-nums text-gray-600">{r.user_id ?? "—"}</td>
+                <td className="px-3 py-2 font-mono text-gray-500 max-w-[12rem] truncate" title={JSON.stringify(r.meta)}>
+                  {r.meta ? JSON.stringify(r.meta) : "—"}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
@@ -90,18 +203,35 @@ function AdminCreateUser() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<"employee" | "manager" | "admin">("employee");
-  const [employeeId, setEmployeeId] = useState("");
+  const [employeeId, setEmployeeId] = useState<number | "">("");
+  const [employees, setEmployees] = useState<EmpOpt[]>([]);
   const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    void (async () => {
+      const res = await apiFetch("/employees");
+      if (!res.ok) return;
+      const rows = (await res.json()) as { id: number; name: string; department: string }[];
+      setEmployees(rows.map((r) => ({ id: r.id, name: r.name, department: r.department })));
+    })();
+  }, []);
+
+  useEffect(() => {
+    if (role !== "employee") setEmployeeId("");
+  }, [role]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setMsg(null);
+    if (role === "employee" && employeeId === "") {
+      setMsg("Для роли «Сотрудник» выберите сотрудника из списка.");
+      return;
+    }
     setBusy(true);
     try {
       const body: Record<string, unknown> = { username, password, role };
-      const eid = employeeId.trim();
-      if (eid) body.employee_id = Number(eid);
+      if (role === "employee" && employeeId !== "") body.employee_id = employeeId;
       const res = await apiFetch("/admin/users", {
         method: "POST",
         body: JSON.stringify(body),
@@ -119,6 +249,13 @@ function AdminCreateUser() {
     }
   }
 
+  const msgClass =
+    msg == null
+      ? ""
+      : msg.includes("создан")
+        ? "text-green-700 bg-green-50 border border-green-100 rounded-lg px-3 py-2"
+        : "text-red-700 bg-red-50 border border-red-100 rounded-lg px-3 py-2";
+
   return (
     <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm space-y-4">
       <h2 className="text-lg font-semibold flex items-center gap-2">
@@ -126,9 +263,10 @@ function AdminCreateUser() {
         Администрирование
       </h2>
       <p className="text-sm text-gray-600">
-        Создание учётной записи. Для сотрудника укажите <code className="text-xs bg-gray-100 px-1 rounded">employee_id</code> из БД.
+        Создание учётной записи. Для входа сотрудника в опрос выберите соответствующую запись из списка
+        сотрудников.
       </p>
-      <form onSubmit={onSubmit} className="space-y-3 max-w-md">
+      <form onSubmit={(e) => void onSubmit(e)} className="space-y-3 max-w-md">
         <input
           className="w-full border rounded-xl px-3 py-2"
           placeholder="Логин"
@@ -154,12 +292,27 @@ function AdminCreateUser() {
           <option value="manager">Руководитель</option>
           <option value="admin">Администратор</option>
         </select>
-        <input
-          className="w-full border rounded-xl px-3 py-2"
-          placeholder="employee_id (необязательно)"
-          value={employeeId}
-          onChange={(e) => setEmployeeId(e.target.value)}
-        />
+        {role === "employee" && (
+          <label className="block text-sm text-gray-600">
+            Привязка к сотруднику
+            <select
+              className="mt-1 w-full border rounded-xl px-3 py-2 bg-white"
+              value={employeeId === "" ? "" : String(employeeId)}
+              onChange={(e) => {
+                const v = e.target.value;
+                setEmployeeId(v === "" ? "" : Number(v));
+              }}
+              required
+            >
+              <option value="">— выберите —</option>
+              {employees.map((em) => (
+                <option key={em.id} value={em.id}>
+                  {em.name} ({em.department})
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         <button
           type="submit"
           disabled={busy}
@@ -167,25 +320,14 @@ function AdminCreateUser() {
         >
           {busy ? "Создание…" : "Создать пользователя"}
         </button>
-        {msg && <p className="text-sm text-gray-700">{msg}</p>}
+        {msg && <p className={`text-sm ${msgClass}`}>{msg}</p>}
       </form>
-      <p className="text-xs text-gray-400">
-        Полный аудит: откройте Swagger <code className="bg-gray-100 px-1 rounded">/docs</code> → GET /api/audit/logs (только admin).
-      </p>
     </div>
   );
 }
 
 export default function Settings() {
-  const { user } = useAuth();
-  const [me, setMe] = useState<UserMe | null>(null);
-
-  useEffect(() => {
-    void (async () => {
-      const res = await apiFetch("/auth/me");
-      if (res.ok) setMe(await res.json());
-    })();
-  }, []);
+  const { user, loading } = useAuth();
 
   return (
     <div className="p-6 space-y-8 max-w-3xl">
@@ -204,35 +346,55 @@ export default function Settings() {
           <User size={20} className="text-[#0052FF]" />
           Профиль
         </h2>
-        {me ? (
+        {loading ? (
+          <p className="text-sm text-gray-500">Загрузка…</p>
+        ) : user ? (
           <dl className="grid gap-2 text-sm">
             <div className="flex gap-2">
               <dt className="text-gray-500 w-28">Логин</dt>
-              <dd className="font-medium text-gray-900">{me.username}</dd>
+              <dd className="font-medium text-gray-900">{user.username}</dd>
             </div>
             <div className="flex gap-2">
               <dt className="text-gray-500 w-28">Роль</dt>
-              <dd className="font-medium text-gray-900">{me.role}</dd>
+              <dd className="font-medium text-gray-900">{user.role}</dd>
             </div>
-            {me.employee_id != null && (
+            {user.employee_id != null && (
               <div className="flex gap-2">
                 <dt className="text-gray-500 w-28">employee_id</dt>
-                <dd className="font-medium text-gray-900">{me.employee_id}</dd>
+                <dd className="font-medium text-gray-900">{user.employee_id}</dd>
               </div>
             )}
           </dl>
         ) : (
-          <p className="text-sm text-gray-500">Загрузка…</p>
+          <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl px-3 py-2">
+            Не удалось загрузить профиль. Выполните повторный{" "}
+            <Link to="/login" className="underline font-medium">
+              вход
+            </Link>
+            .
+          </p>
         )}
-        <ChangePasswordBlock />
+        {user && <ChangePasswordBlock />}
       </div>
 
-      {user?.role === "admin" && <AdminCreateUser />}
+      {user?.role === "admin" && (
+        <>
+          <AdminAuditLog />
+          <AdminCreateUser />
+        </>
+      )}
 
-      <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50/80 p-4 text-sm text-gray-600">
-        Нет данных на дашборде? Выполните <code className="text-xs bg-white px-1 rounded border">python -m scripts.seed</code> в каталоге{" "}
-        <code className="text-xs bg-white px-1 rounded border">backend</code> или загрузите CSV на странице «Отчёты».
-      </div>
+      {user && user.role !== "employee" && (
+        <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50/80 p-4 text-sm text-gray-600">
+          Нет данных на дашборде? Выполните{" "}
+          <code className="text-xs bg-white px-1 rounded border">python -m scripts.seed</code> в каталоге{" "}
+          <code className="text-xs bg-white px-1 rounded border">backend</code> или загрузите CSV на странице{" "}
+          <Link to="/reports" className="text-[#0052FF] font-medium hover:underline">
+            «Отчёты»
+          </Link>
+          .
+        </div>
+      )}
     </div>
   );
 }

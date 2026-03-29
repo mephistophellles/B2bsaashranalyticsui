@@ -9,8 +9,21 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.dependencies import audit, get_current_user, require_roles
-from app.models import Job, JobStatus, Survey, SurveyQuestion, User, UserRole
-from app.schemas import JobOut, SurveySubmitRequest, SurveyTemplateQuestion
+from app.data.survey_methodology import (
+    METHODOLOGY_BLOCK_TITLES,
+    ensure_methodology_questions,
+)
+from app.models import Job, JobStatus, Survey, SurveyCampaign, SurveyQuestion, User, UserRole
+from app.schemas import (
+    JobOut,
+    SurveyBlockTitleOut,
+    SurveyCampaignCreate,
+    SurveyCampaignOut,
+    SurveyCampaignPatch,
+    SurveySubmitRequest,
+    SurveyTemplateQuestion,
+    SurveyTemplateResponse,
+)
 from app.services.essi import recompute_indices
 from app.services.recommendations_engine import generate_rule_based, maybe_train_lightgbm_and_log
 from app.tasks import process_survey_import
@@ -18,25 +31,66 @@ from app.tasks import process_survey_import
 router = APIRouter(prefix="/surveys", tags=["surveys"])
 
 
-@router.get("/template", response_model=list[SurveyTemplateQuestion])
+@router.get("/template", response_model=SurveyTemplateResponse)
 def survey_template(db: Session = Depends(get_db)):
+    ensure_methodology_questions(db)
     qs = db.query(SurveyQuestion).order_by(SurveyQuestion.block_index, SurveyQuestion.order_in_block).all()
-    if not qs:
-        # default 5 blocks x 1 placeholder
-        for b in range(1, 6):
-            db.add(
-                SurveyQuestion(
-                    block_index=b,
-                    order_in_block=1,
-                    text=f"Блок {b}: оцените согласие по шкале 1–5",
-                )
-            )
-        db.commit()
-        qs = db.query(SurveyQuestion).order_by(SurveyQuestion.block_index, SurveyQuestion.order_in_block).all()
-    return [
+    questions = [
         SurveyTemplateQuestion(id=q.id, block_index=q.block_index, order_in_block=q.order_in_block, text=q.text)
         for q in qs
     ]
+    block_titles = [
+        SurveyBlockTitleOut(block_index=i, title=METHODOLOGY_BLOCK_TITLES[i]) for i in range(1, 6)
+    ]
+    return SurveyTemplateResponse(questions=questions, block_titles=block_titles)
+
+
+@router.get("/campaigns", response_model=list[SurveyCampaignOut])
+def list_campaigns(
+    db: Session = Depends(get_db),
+    user: User = Depends(require_roles(UserRole.manager, UserRole.admin)),
+):
+    rows = db.query(SurveyCampaign).order_by(SurveyCampaign.created_at.desc()).all()
+    return [SurveyCampaignOut.model_validate(r) for r in rows]
+
+
+@router.post("/campaigns", response_model=SurveyCampaignOut, status_code=201)
+def create_campaign(
+    body: SurveyCampaignCreate,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_roles(UserRole.manager, UserRole.admin)),
+):
+    c = SurveyCampaign(
+        name=body.name.strip(),
+        status="active",
+        starts_at=body.starts_at,
+        ends_at=body.ends_at,
+    )
+    db.add(c)
+    db.commit()
+    db.refresh(c)
+    audit(db, user, "survey_campaign_create", "survey_campaign", {"id": c.id})
+    return SurveyCampaignOut.model_validate(c)
+
+
+@router.patch("/campaigns/{campaign_id}", response_model=SurveyCampaignOut)
+def patch_campaign(
+    campaign_id: int,
+    body: SurveyCampaignPatch,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_roles(UserRole.manager, UserRole.admin)),
+):
+    c = db.query(SurveyCampaign).filter(SurveyCampaign.id == campaign_id).first()
+    if not c:
+        raise HTTPException(status_code=404, detail="Not found")
+    if body.status is not None:
+        if body.status not in ("active", "closed"):
+            raise HTTPException(status_code=400, detail="status must be active or closed")
+        c.status = body.status
+    db.commit()
+    db.refresh(c)
+    audit(db, user, "survey_campaign_update", "survey_campaign", {"id": c.id})
+    return SurveyCampaignOut.model_validate(c)
 
 
 @router.post("", status_code=201)
@@ -50,6 +104,19 @@ def submit_survey(
         raise HTTPException(status_code=400, detail="employee_id required")
     if user.role == UserRole.employee and user.employee_id != eid:
         raise HTTPException(status_code=403, detail="Forbidden")
+    camp_id = body.campaign_id
+    if camp_id is not None:
+        camp = db.query(SurveyCampaign).filter(SurveyCampaign.id == camp_id).first()
+        if not camp or camp.status != "active":
+            raise HTTPException(status_code=400, detail="Кампания не найдена или закрыта")
+        if user.role == UserRole.employee:
+            dup = (
+                db.query(Survey)
+                .filter(Survey.employee_id == eid, Survey.campaign_id == camp_id)
+                .first()
+            )
+            if dup:
+                raise HTTPException(status_code=400, detail="Опрос по этой кампании уже пройден")
     sdate = body.survey_date or date.today()
     totals = [0.0] * 5
     for block in body.blocks:
@@ -67,13 +134,14 @@ def submit_survey(
             score_block4=totals[3],
             score_block5=totals[4],
             source="ui",
+            campaign_id=camp_id,
         )
     )
     db.commit()
     recompute_indices(db, date.today())
     generate_rule_based(db)
     maybe_train_lightgbm_and_log(db)
-    audit(db, user, "survey_submit", "survey", {"employee_id": eid})
+    audit(db, user, "survey_submit", "survey", {"employee_id": eid, "campaign_id": camp_id})
     return {"status": "ok"}
 
 

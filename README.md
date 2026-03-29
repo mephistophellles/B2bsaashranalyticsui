@@ -6,4 +6,4 @@
 
 Учётки: `manager`/`manager123`, `employee`/`employee123`, `admin`/`admin123`.
 
-Продакшен: задайте `SECRET_KEY` и при необходимости `DATABASE_URL`, `CORS_ORIGINS` (см. `backend/.env.example`).
+Продакшен: `SECRET_KEY`, `DATABASE_URL` (лучше Postgres), `CORS_ORIGINS`, HTTPS и бэкапы — см. `backend/README.md` (чеклист и импорт опросов / `GET /api/jobs/{id}`).

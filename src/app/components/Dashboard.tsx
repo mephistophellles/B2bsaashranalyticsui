@@ -28,7 +28,11 @@ type DashboardPayload = {
   engagement_pct: number;
   engagement_delta_pct: number;
   risk_level: string;
-  risk_employees_delta_pct: number;
+  risk_crisis_count: number;
+  risk_zone_count: number;
+  risk_at_risk_total: number;
+  risk_indexed_employees: number;
+  risk_employees_delta_pct: number | null;
   productivity_pct: number;
   productivity_delta_pct: number;
   essi_series: { id: string; month: string; value: number }[];
@@ -57,9 +61,11 @@ export default function Dashboard() {
 
   useEffect(() => {
     void (async () => {
+      setError(null);
       const res = await apiFetch("/reports/dashboard");
       if (!res.ok) {
         setError("Не удалось загрузить дашборд");
+        setData(null);
         return;
       }
       setData(await res.json());
@@ -146,9 +152,16 @@ export default function Dashboard() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1 text-green-600">
-              <TrendingUp size={16} />
-              <span className="text-sm font-medium">+{data.engagement_delta_pct}%</span>
+            <div
+              className={`flex items-center gap-1 ${
+                data.engagement_delta_pct >= 0 ? "text-green-600" : "text-red-600"
+              }`}
+            >
+              {data.engagement_delta_pct >= 0 ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
+              <span className="text-sm font-medium">
+                {data.engagement_delta_pct > 0 ? "+" : ""}
+                {data.engagement_delta_pct}%
+              </span>
             </div>
             <span className="text-xs text-gray-500">к прошлому периоду</span>
           </div>
@@ -183,19 +196,35 @@ export default function Dashboard() {
               <AlertTriangle className="text-yellow-600" size={20} />
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1 text-green-600">
-              <TrendingDown size={16} />
-              <span className="text-sm font-medium">{data.risk_employees_delta_pct}%</span>
-            </div>
-            <span className="text-xs text-gray-500">сотрудников в зоне риска</span>
-          </div>
+          <p className="text-sm text-gray-700 leading-snug">
+            <span className="font-semibold text-gray-900">{data.risk_at_risk_total}</span> в зоне
+            риска по методике
+            {data.risk_indexed_employees > 0 && (
+              <>
+                {" "}
+                из <span className="font-medium">{data.risk_indexed_employees}</span> с индексом
+              </>
+            )}
+            .
+          </p>
+          <p className="text-xs text-gray-500 mt-1">
+            Кризис (&lt;40): {data.risk_crisis_count} · Зона риска (40–60): {data.risk_zone_count}
+          </p>
+          {data.risk_employees_delta_pct != null && (
+            <p className="text-xs text-gray-500 mt-1">
+              Изменение к прошлому периоду: {data.risk_employees_delta_pct > 0 ? "+" : ""}
+              {data.risk_employees_delta_pct}%
+            </p>
+          )}
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-shadow">
+        <div
+          className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-shadow"
+          title="Модельный показатель: производный от динамики ESSI (к среднему по месяцам добавлено +10 п.п., макс. 100%). Отдельный опрос продуктивности не проводится."
+        >
           <div className="flex items-start justify-between mb-3">
             <div>
-              <div className="text-sm text-gray-600 mb-1">Продуктивность</div>
+              <div className="text-sm text-gray-600 mb-1">Продуктивность (модель)</div>
               <div className="text-3xl font-bold text-gray-900">{data.productivity_pct}%</div>
             </div>
             <div className="w-10 h-10 rounded-lg bg-purple-50 flex items-center justify-center">
@@ -203,11 +232,18 @@ export default function Dashboard() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1 text-green-600">
-              <TrendingUp size={16} />
-              <span className="text-sm font-medium">+{data.productivity_delta_pct}%</span>
+            <div
+              className={`flex items-center gap-1 ${
+                data.productivity_delta_pct >= 0 ? "text-green-600" : "text-red-600"
+              }`}
+            >
+              {data.productivity_delta_pct >= 0 ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
+              <span className="text-sm font-medium">
+                {data.productivity_delta_pct > 0 ? "+" : ""}
+                {data.productivity_delta_pct}%
+              </span>
             </div>
-            <span className="text-xs text-gray-500">к прошлому периоду</span>
+            <span className="text-xs text-gray-500">к прошлому периоду (модель)</span>
           </div>
           <div className="mt-3" style={{ height: 48 }}>
             <ResponsiveContainer width="100%" height={48}>
@@ -310,11 +346,13 @@ export default function Dashboard() {
                     <td className="py-3 px-4">
                       <span
                         className={`inline-flex items-center px-2.5 py-1 rounded-full text-sm font-medium ${
-                          employee.essi >= 85
+                          employee.essi >= 80
                             ? "bg-green-100 text-green-700"
-                            : employee.essi >= 70
+                            : employee.essi >= 60
                               ? "bg-yellow-100 text-yellow-700"
-                              : "bg-red-100 text-red-700"
+                              : employee.essi >= 40
+                                ? "bg-orange-100 text-orange-800"
+                                : "bg-red-100 text-red-700"
                         }`}
                       >
                         {employee.essi}

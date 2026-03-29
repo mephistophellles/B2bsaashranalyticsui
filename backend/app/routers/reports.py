@@ -1,7 +1,7 @@
 import os
 from datetime import datetime
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
@@ -18,10 +18,11 @@ router = APIRouter(prefix="/reports", tags=["reports"])
 def dashboard(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
+    months: int = Query(6, ge=3, le=24, description="Число последних месяцев для ряда ESSI"),
 ):
     if user.role == UserRole.employee:
         raise HTTPException(status_code=403, detail="Forbidden")
-    data = build_dashboard(db, viewer=user)
+    data = build_dashboard(db, viewer=user, essi_months=months)
     return DashboardResponse.model_validate(data)
 
 

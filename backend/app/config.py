@@ -30,11 +30,15 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379/0"
 
     mlflow_tracking_uri: str = "file:./mlruns"
-    max_essi_points: float = 25.0
+    # ИСУР по методике: сумма 25 ответов (5 блоков × 5), макс. 125 баллов → индекс 0–100.
+    max_essi_points: float = 125.0
     num_survey_blocks: int = 5
 
     # True: руководитель не видит ФИО/email/телефон в списках и дашборде (псевдонимы).
     privacy_hide_names_for_managers: bool = False
+
+    # Только для dev: разрешить старт с дефолтным SECRET_KEY при Postgres / POTENTIAL_ENV=production.
+    allow_insecure_secret: bool = False
 
 
 settings = Settings()

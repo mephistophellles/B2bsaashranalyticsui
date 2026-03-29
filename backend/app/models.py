@@ -78,6 +78,29 @@ class Employee(Base):
     )
 
 
+class OrganizationSettings(Base):
+    """Одна строка id=1: черновики для калькулятора экономики на странице «Отчёты»."""
+
+    __tablename__ = "organization_settings"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    default_fot: Mapped[float | None] = mapped_column(Float, nullable=True)
+    default_k: Mapped[float | None] = mapped_column(Float, nullable=True)
+    default_c_replace: Mapped[float | None] = mapped_column(Float, nullable=True)
+    default_departed_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+
+class SurveyCampaign(Base):
+    __tablename__ = "survey_campaigns"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(255))
+    status: Mapped[str] = mapped_column(String(32), default="active")  # active | closed
+    starts_at: Mapped[date | None] = mapped_column(Date, nullable=True)
+    ends_at: Mapped[date | None] = mapped_column(Date, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
 class Survey(Base):
     __tablename__ = "surveys"
 
@@ -90,6 +113,7 @@ class Survey(Base):
     score_block4: Mapped[float] = mapped_column(Float)
     score_block5: Mapped[float] = mapped_column(Float)
     source: Mapped[str] = mapped_column(String(32), default="import")  # import | ui
+    campaign_id: Mapped[int | None] = mapped_column(ForeignKey("survey_campaigns.id"), nullable=True)
 
 
 class IndexRecord(Base):
@@ -108,6 +132,7 @@ class Recommendation(Base):
     department_id: Mapped[int] = mapped_column(ForeignKey("departments.id"))
     title: Mapped[str] = mapped_column(String(512))
     text: Mapped[str] = mapped_column(Text)
+    text_employee: Mapped[str | None] = mapped_column(Text, nullable=True)
     priority: Mapped[str] = mapped_column(String(32))  # high | medium | low
     status: Mapped[str] = mapped_column(String(64), default="Новая")
     model_version: Mapped[str | None] = mapped_column(String(64), nullable=True)

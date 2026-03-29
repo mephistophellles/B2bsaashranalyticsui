@@ -18,10 +18,20 @@ type SurveyRow = {
 
 type Rec = { id: number; title: string; description: string; priority: string };
 
+type CampaignRow = {
+  id: number;
+  name: string;
+  status: string;
+  completed: boolean;
+};
+
+const PREVIEW_COUNT = 2;
+
 export default function EmployeeHome() {
   const [data, setData] = useState<Summary | null>(null);
   const [surveys, setSurveys] = useState<SurveyRow[]>([]);
-  const [recs, setRecs] = useState<Rec[]>([]);
+  const [allRecs, setAllRecs] = useState<Rec[]>([]);
+  const [campaigns, setCampaigns] = useState<CampaignRow[]>([]);
 
   useEffect(() => {
     void (async () => {
@@ -40,10 +50,14 @@ export default function EmployeeHome() {
   useEffect(() => {
     void (async () => {
       const res = await apiFetch("/me/recommendations");
-      if (res.ok) {
-        const j = (await res.json()) as Rec[];
-        setRecs(j.slice(0, 2));
-      }
+      if (res.ok) setAllRecs(await res.json());
+    })();
+  }, []);
+
+  useEffect(() => {
+    void (async () => {
+      const res = await apiFetch("/me/campaigns");
+      if (res.ok) setCampaigns(await res.json());
     })();
   }, []);
 
@@ -80,17 +94,59 @@ export default function EmployeeHome() {
         </Link>
       </div>
 
-      {recs.length > 0 && (
+      {campaigns.length > 0 && (
         <div className="space-y-2">
+          <h2 className="text-sm font-semibold text-gray-800">Активные кампании</h2>
+          <ul className="rounded-xl border border-gray-200 bg-white divide-y divide-gray-100 text-sm shadow-sm">
+            {campaigns.map((c) => (
+              <li key={c.id} className="px-4 py-3 flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <div className="font-medium text-gray-900">{c.name}</div>
+                  <div className="text-xs text-gray-500">
+                    {c.completed ? "Пройдено" : "Не пройдено"}
+                  </div>
+                </div>
+                {!c.completed ? (
+                  <Link
+                    to={`/survey?campaign=${c.id}`}
+                    className="text-sm font-semibold text-[#0052FF] hover:underline shrink-0"
+                  >
+                    Пройти
+                  </Link>
+                ) : (
+                  <span className="text-xs text-green-700 font-medium shrink-0">Готово</span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {allRecs.length > 0 && (
+        <div className="space-y-3">
           <h2 className="text-sm font-semibold text-gray-800">Рекомендации для отдела</h2>
-          <div className="space-y-2">
-            {recs.map((r) => (
+          <div className="space-y-3">
+            {allRecs.slice(0, PREVIEW_COUNT).map((r) => (
               <div key={r.id} className="rounded-xl border border-gray-200 bg-white p-4 text-sm shadow-sm">
                 <div className="font-medium text-gray-900">{r.title}</div>
-                <p className="text-gray-600 mt-1 line-clamp-2">{r.description}</p>
+                <p className="text-gray-600 mt-1 line-clamp-3 leading-relaxed">{r.description}</p>
+                <Link
+                  to={`/my-recommendations/${r.id}`}
+                  className="inline-block mt-2 text-sm font-medium text-[#0052FF] hover:underline"
+                >
+                  Подробнее
+                </Link>
               </div>
             ))}
           </div>
+          {allRecs.length > PREVIEW_COUNT && (
+            <p className="text-sm text-gray-600">
+              Всего рекомендаций: {allRecs.length}. На главной показаны первые {PREVIEW_COUNT}.{" "}
+              <Link to="/my-recommendations" className="font-medium text-[#0052FF] hover:underline">
+                Открыть полный список
+              </Link>
+            </p>
+          )}
         </div>
       )}
 
@@ -101,9 +157,16 @@ export default function EmployeeHome() {
         ) : (
           <ul className="rounded-xl border border-gray-200 bg-white divide-y divide-gray-100 text-sm shadow-sm">
             {surveys.map((s) => (
-              <li key={s.id} className="px-4 py-3 flex justify-between gap-4">
-                <span>{s.survey_date}</span>
-                <span className="text-gray-500">{s.source === "ui" ? "В интерфейсе" : "Импорт"}</span>
+              <li key={s.id}>
+                <Link
+                  to={`/my-surveys/${s.id}`}
+                  className="px-4 py-3 flex justify-between gap-4 w-full text-left hover:bg-gray-50 focus-visible:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#0052FF]/30 transition-colors"
+                >
+                  <span className="text-gray-900">{s.survey_date}</span>
+                  <span className="text-gray-500 shrink-0">
+                    {s.source === "ui" ? "В интерфейсе" : "Импорт"}
+                  </span>
+                </Link>
               </li>
             ))}
           </ul>

@@ -59,16 +59,23 @@ export default function Reports() {
     loss_total: number;
   } | null>(null);
   const [econErr, setEconErr] = useState<string | null>(null);
+  const [econDraftBusy, setEconDraftBusy] = useState(false);
+  const [econDraftMsg, setEconDraftMsg] = useState<string | null>(null);
 
   useEffect(() => {
     void (async () => {
       const res = await apiFetch("/economy/defaults");
-      if (res.ok) {
-        const j = await res.json();
-        if (typeof j.suggested_essi === "number") {
-          setEcon((e) => ({ ...e, essi_score: j.suggested_essi }));
-        }
-      }
+      if (!res.ok) return;
+      const j = await res.json();
+      setEcon((e) => ({
+        ...e,
+        essi_score: typeof j.suggested_essi === "number" ? j.suggested_essi : e.essi_score,
+        fot: typeof j.draft_fot === "number" ? j.draft_fot : e.fot,
+        k: typeof j.draft_k === "number" ? j.draft_k : e.k,
+        c_replace: typeof j.draft_c_replace === "number" ? j.draft_c_replace : e.c_replace,
+        departed_count:
+          typeof j.draft_departed_count === "number" ? j.draft_departed_count : e.departed_count,
+      }));
     })();
   }, []);
 
@@ -175,6 +182,29 @@ export default function Reports() {
     setEconErr(await parseErrorMessage(res));
   }
 
+  async function saveEconomyDrafts() {
+    setEconDraftBusy(true);
+    setEconDraftMsg(null);
+    try {
+      const res = await apiFetch("/economy/drafts", {
+        method: "PATCH",
+        body: JSON.stringify({
+          default_fot: econ.fot,
+          default_k: econ.k,
+          default_c_replace: econ.c_replace,
+          default_departed_count: econ.departed_count,
+        }),
+      });
+      if (!res.ok) {
+        setEconDraftMsg(await parseErrorMessage(res));
+        return;
+      }
+      setEconDraftMsg("Черновики сохранены");
+    } finally {
+      setEconDraftBusy(false);
+    }
+  }
+
   return (
     <div className="p-6 space-y-6">
       <div>
@@ -202,7 +232,7 @@ export default function Reports() {
         )}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(0,20rem)] gap-4 items-start">
         <div className="bg-white rounded-2xl border border-gray-200 p-6 space-y-4 shadow-sm">
           <h2 className="text-lg font-semibold flex items-center gap-2">
             <Upload size={20} /> Загрузка опросов
@@ -210,12 +240,28 @@ export default function Reports() {
           <p className="text-sm text-gray-600">
             Колонки: employee_id, survey_date, score_block1..score_block5
           </p>
-          <input
-            type="file"
-            accept=".csv,.xlsx,.xls"
-            disabled={importBusy}
-            onChange={(e) => void onUpload(e)}
-          />
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+            <input
+              id="survey-import-file"
+              type="file"
+              accept=".csv,.xlsx,.xls"
+              disabled={importBusy}
+              onChange={(e) => void onUpload(e)}
+              className="sr-only"
+            />
+            <label
+              htmlFor="survey-import-file"
+              className={`inline-flex items-center justify-center gap-2 min-h-[48px] px-6 py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-[#0052FF] to-[#4D7CFF] shadow-lg shadow-[#0052FF]/25 ring-2 ring-[#0052FF]/20 cursor-pointer hover:opacity-95 hover:ring-[#0052FF]/40 transition-all select-none ${
+                importBusy ? "opacity-50 pointer-events-none cursor-not-allowed" : ""
+              }`}
+            >
+              <Upload size={22} strokeWidth={2.25} aria-hidden />
+              {importBusy ? "Обработка файла…" : "Выберите файл"}
+            </label>
+            <span className="text-sm text-gray-500">
+              Форматы: CSV, XLSX, XLS. После выбора файла дождитесь сообщения о завершении импорта.
+            </span>
+          </div>
           {importStatus && (
             <p className="text-sm text-gray-700 bg-gray-50 rounded-xl px-3 py-2 border border-gray-100">
               {importBusy ? "Обработка… " : ""}
@@ -224,16 +270,17 @@ export default function Reports() {
           )}
         </div>
 
-        <div className="bg-white rounded-2xl border border-gray-200 p-6 space-y-4 shadow-sm">
-          <h2 className="text-lg font-semibold flex items-center gap-2">
-            <FileText size={20} /> Экспорт отчётов
+        <div className="bg-white rounded-2xl border border-gray-200 p-4 space-y-2 shadow-sm w-full xl:max-w-sm">
+          <h2 className="text-base font-semibold flex items-center gap-2">
+            <FileText size={18} /> Экспорт отчётов
           </h2>
+          <p className="text-xs text-gray-500 leading-snug">Сводка: PDF или Excel, затем скачивание.</p>
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
               disabled={reportBusy}
               onClick={() => void generateReport("summary")}
-              className="px-4 py-2 rounded-xl text-white font-medium bg-gradient-to-r from-[#0052FF] to-[#4D7CFF] disabled:opacity-50"
+              className="px-3 py-1.5 text-sm rounded-lg text-white font-medium bg-gradient-to-r from-[#0052FF] to-[#4D7CFF] disabled:opacity-50"
             >
               PDF
             </button>
@@ -241,7 +288,7 @@ export default function Reports() {
               type="button"
               disabled={reportBusy}
               onClick={() => void generateReport("summary_excel")}
-              className="px-4 py-2 rounded-xl border border-[#0052FF] text-[#0052FF] font-medium disabled:opacity-50 hover:bg-blue-50"
+              className="px-3 py-1.5 text-sm rounded-lg border border-[#0052FF] text-[#0052FF] font-medium disabled:opacity-50 hover:bg-blue-50"
             >
               Excel
             </button>
@@ -249,14 +296,14 @@ export default function Reports() {
               <button
                 type="button"
                 onClick={() => void downloadReady()}
-                className="px-4 py-2 rounded-xl bg-green-600 text-white font-medium"
+                className="px-3 py-1.5 text-sm rounded-lg bg-green-600 text-white font-medium"
               >
                 Скачать .{readyReportExt}
               </button>
             )}
           </div>
           {reportStatus && (
-            <p className="text-sm text-gray-700">{reportBusy ? "Подождите… " : ""}{reportStatus}</p>
+            <p className="text-xs text-gray-700">{reportBusy ? "Подождите… " : ""}{reportStatus}</p>
           )}
         </div>
       </div>
@@ -265,6 +312,10 @@ export default function Reports() {
         <h2 className="text-lg font-semibold flex items-center gap-2">
           <Calculator size={20} /> Экономический эффект
         </h2>
+        <p className="text-sm text-gray-600 leading-relaxed">
+          Значение ESSI при открытии страницы подставляется из среднего ESSI организации по данным опросов в системе.
+          ФОТ, коэффициент k, C_replace и число ушедших вводятся вручную по вашей методике; автоматической подтяжки из бухгалтерии или кадров нет.
+        </p>
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
           <label className="text-sm">
             ФОТ
@@ -315,13 +366,26 @@ export default function Reports() {
             />
           </label>
         </div>
-        <button
-          type="button"
-          onClick={() => void calcEconomy()}
-          className="px-4 py-2 rounded-xl border border-gray-300 font-medium hover:bg-gray-50"
-        >
-          Рассчитать
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => void calcEconomy()}
+            className="px-4 py-2 rounded-xl border border-gray-300 font-medium hover:bg-gray-50"
+          >
+            Рассчитать
+          </button>
+          <button
+            type="button"
+            disabled={econDraftBusy}
+            onClick={() => void saveEconomyDrafts()}
+            className="px-4 py-2 rounded-xl bg-gray-100 text-gray-800 font-medium hover:bg-gray-200 disabled:opacity-50"
+          >
+            {econDraftBusy ? "Сохранение…" : "Сохранить черновики (ФОТ, k, C, ушедшие)"}
+          </button>
+        </div>
+        {econDraftMsg && (
+          <p className="text-sm text-gray-600">{econDraftMsg}</p>
+        )}
         {econErr && (
           <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl px-3 py-2">{econErr}</p>
         )}

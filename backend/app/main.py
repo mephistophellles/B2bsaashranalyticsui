@@ -1,12 +1,15 @@
 import logging
 import os
+import sys
+import uuid
 import warnings
 
 from fastapi import FastAPI
+from starlette.middleware.base import BaseHTTPMiddleware
 from fastapi.middleware.cors import CORSMiddleware
 from prometheus_fastapi_instrumentator import Instrumentator
 
-from app.bootstrap import ensure_local_demo_accounts
+from app.bootstrap import ensure_local_demo_accounts, ensure_organization_settings_row
 from app.config import INSECURE_DEFAULT_SECRET_KEY, settings
 from app.database import Base, engine
 from app.routers import (
@@ -28,6 +31,27 @@ from app.routers import (
 )
 
 app = FastAPI(title=settings.app_name, version="1.0.0")
+
+_req_log = logging.getLogger("api.request")
+
+
+class RequestContextMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        rid = request.headers.get("X-Request-ID") or str(uuid.uuid4())[:12]
+        request.state.request_id = rid
+        response = await call_next(request)
+        response.headers["X-Request-ID"] = rid
+        _req_log.info(
+            "%s %s -> %s",
+            request.method,
+            request.url.path,
+            response.status_code,
+            extra={"request_id": rid},
+        )
+        return response
+
+
+app.add_middleware(RequestContextMiddleware)
 
 origins = [o.strip() for o in settings.cors_origins.split(",") if o.strip()]
 app.add_middleware(
@@ -67,9 +91,31 @@ def _should_warn_insecure_secret() -> bool:
     return os.environ.get("POTENTIAL_ENV", "").lower() == "production"
 
 
+def _abort_if_insecure_secret_in_prod() -> None:
+    if settings.secret_key != INSECURE_DEFAULT_SECRET_KEY:
+        return
+    if settings.allow_insecure_secret:
+        return
+    url = settings.database_url.lower()
+    prodish = (
+        "postgresql" in url
+        or "postgres" in url
+        or os.environ.get("POTENTIAL_ENV", "").lower() == "production"
+    )
+    if not prodish:
+        return
+    logging.getLogger("uvicorn.error").error(
+        "Отказ запуска: дефолтный SECRET_KEY при PostgreSQL или POTENTIAL_ENV=production. "
+        "Задайте SECRET_KEY или (только для разработки) ALLOW_INSECURE_SECRET=true."
+    )
+    sys.exit(1)
+
+
 @app.on_event("startup")
 def startup():
+    _abort_if_insecure_secret_in_prod()
     Base.metadata.create_all(bind=engine)
+    ensure_organization_settings_row()
     ensure_local_demo_accounts()
     if _should_warn_insecure_secret():
         warnings.warn(

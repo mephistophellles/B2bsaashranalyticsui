@@ -1,6 +1,4 @@
 from collections import defaultdict
-from datetime import date
-
 from sqlalchemy.orm import Session
 
 from app.models import Department, Employee, IndexRecord, Recommendation, Survey, User
@@ -66,29 +64,65 @@ def employee_trend(db: Session, employee_id: int) -> str:
 
 
 def status_from_essi(essi: float) -> str:
-    if essi >= 85:
-        return "Отлично"
-    if essi >= 70:
-        return "Хорошо"
-    return "Риск"
+    """Шкала интерпретации ИСУР (методика): <40 кризис, 40–60 риск, 60–80 удовл., ≥80 высокая."""
+    if essi >= 80:
+        return "Высокая устойчивость"
+    if essi >= 60:
+        return "Удовлетворительно"
+    if essi >= 40:
+        return "Зона риска"
+    return "Кризис"
 
 
-def build_dashboard(db: Session, viewer: User | None = None) -> dict:
+def latest_index_record_per_employee(db: Session) -> dict[int, IndexRecord]:
+    """Один актуальный снимок индекса на сотрудника (последний по calc_date)."""
+    rows = (
+        db.query(IndexRecord)
+        .order_by(IndexRecord.calc_date.desc(), IndexRecord.id.desc())
+        .all()
+    )
+    out: dict[int, IndexRecord] = {}
+    for ir in rows:
+        if ir.employee_id not in out:
+            out[ir.employee_id] = ir
+    return out
+
+
+def organization_risk_level(at_risk_total: int, indexed: int) -> str:
+    """Карточка «Уровень риска»: Низкий / Средний / Высокий / Нет данных."""
+    if indexed <= 0:
+        return "Нет данных"
+    if at_risk_total == 0:
+        return "Низкий"
+    share = at_risk_total / indexed
+    if at_risk_total >= 3 or share >= 0.2:
+        return "Высокий"
+    return "Средний"
+
+
+def build_dashboard(
+    db: Session,
+    viewer: User | None = None,
+    *,
+    essi_months: int = 6,
+) -> dict:
     org = organization_avg_essi(db) or 0.0
-    series = monthly_org_essi_series(db)
+    series = monthly_org_essi_series(db, limit=max(1, essi_months))
     prev = series[-2]["value"] if len(series) >= 2 else (series[0]["value"] if series else org)
     curr = series[-1]["value"] if series else org
     essi_delta = round(((curr - prev) / prev * 100) if prev else 0.0, 1)
+
+    latest_idx = latest_index_record_per_employee(db)
 
     dept_bars = []
     for d in db.query(Department).all():
         emps = db.query(Employee).filter(Employee.department_id == d.id).all()
         if not emps:
             continue
-        idxs = db.query(IndexRecord).filter(IndexRecord.employee_id.in_([e.id for e in emps])).all()
-        if not idxs:
+        vals = [latest_idx[e.id].essi for e in emps if e.id in latest_idx]
+        if not vals:
             continue
-        avg = sum(i.essi for i in idxs) / len(idxs)
+        avg = sum(vals) / len(vals)
         dept_bars.append(
             {"id": f"dept{d.id}", "department": d.name, "essi": round(avg, 1)}
         )
@@ -134,18 +168,38 @@ def build_dashboard(db: Session, viewer: User | None = None) -> dict:
         for r in recs
     ]
 
-    risk_count = sum(1 for r in recent if r["status"] == "Риск")
-    risk_delta = -12.0  # placeholder trend vs mock UI
+    risk_crisis_count = sum(1 for ir in latest_idx.values() if ir.essi < 40)
+    risk_zone_count = sum(1 for ir in latest_idx.values() if 40 <= ir.essi < 60)
+    risk_at_risk_total = risk_crisis_count + risk_zone_count
+    risk_indexed_employees = len(latest_idx)
+    risk_level = organization_risk_level(risk_at_risk_total, risk_indexed_employees)
+
+    eng_curr = round(max(0, curr - 5) if series else max(0, org - 5), 0)
+    eng_prev = round(max(0, prev - 5) if series else eng_curr, 0)
+    engagement_delta = (
+        round(((eng_curr - eng_prev) / eng_prev * 100), 1) if eng_prev else 0.0
+    )
+
+    prod_curr = min(100, round((curr if series else org) + 10, 0))
+    prod_base = prev if len(series) >= 2 else (curr if series else org)
+    prod_prev = min(100, round(prod_base + 10, 0))
+    productivity_delta = (
+        round(((prod_curr - prod_prev) / prod_prev * 100), 1) if prod_prev else 0.0
+    )
 
     return {
         "essi_index": round(curr if series else org, 0),
         "essi_delta_pct": essi_delta,
-        "engagement_pct": round(max(0, curr - 5) if series else 78, 0),
-        "engagement_delta_pct": 2.8,
-        "risk_level": "Низкий" if risk_count < 2 else "Средний",
-        "risk_employees_delta_pct": risk_delta,
-        "productivity_pct": min(100, round((curr if series else org) + 10, 0)),
-        "productivity_delta_pct": 3.5,
+        "engagement_pct": eng_curr,
+        "engagement_delta_pct": engagement_delta,
+        "risk_level": risk_level,
+        "risk_crisis_count": risk_crisis_count,
+        "risk_zone_count": risk_zone_count,
+        "risk_at_risk_total": risk_at_risk_total,
+        "risk_indexed_employees": risk_indexed_employees,
+        "risk_employees_delta_pct": None,
+        "productivity_pct": prod_curr,
+        "productivity_delta_pct": productivity_delta,
         "essi_series": series if series else [{"id": "m0", "month": "—", "value": round(org, 1)}],
         "department_bars": dept_bars,
         "recent_employees": recent,

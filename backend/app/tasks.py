@@ -1,3 +1,4 @@
+import logging
 import os
 import tempfile
 from datetime import date, datetime
@@ -9,6 +10,8 @@ from app.database import SessionLocal
 from app.models import Job, JobStatus, Notification, ReportExport, Survey
 from app.services.essi import recompute_indices
 from app.services.recommendations_engine import generate_rule_based, maybe_train_lightgbm_and_log
+
+log = logging.getLogger(__name__)
 
 
 def _db() -> Session:
@@ -22,7 +25,9 @@ def process_survey_import(
     try:
         job = db.query(Job).filter(Job.id == job_id).first()
         if not job:
+            log.warning("survey_import job_id=%s: job not found", job_id)
             return
+        log.info("survey_import job_id=%s started", job_id)
         job.status = JobStatus.running
         db.commit()
 
@@ -74,6 +79,7 @@ def process_survey_import(
         job.detail = f"Imported {len(df)} rows"
         job.finished_at = datetime.utcnow()
         db.commit()
+        log.info("survey_import job_id=%s success detail=%s", job_id, job.detail)
         if notify_user_id:
             db.add(
                 Notification(
@@ -84,6 +90,7 @@ def process_survey_import(
             )
             db.commit()
     except Exception as e:
+        log.exception("survey_import job_id=%s failed", job_id)
         db.rollback()
         job = db.query(Job).filter(Job.id == job_id).first()
         if job:
@@ -142,7 +149,12 @@ def run_report_export(report_id: int) -> None:
 
             c = canvas.Canvas(path_pdf, pagesize=A4)
             c.drawString(100, 800, "Потенциал — сводный отчёт")
-            c.drawString(100, 780, datetime.utcnow().isoformat())
+            c.drawString(
+                100,
+                780,
+                "ИСУР (ESSI): 5 блоков × 5 утверждений, шкала Лайкерта 1–5 (3 — затрудняюсь ответить).",
+            )
+            c.drawString(100, 760, datetime.utcnow().isoformat())
             c.showPage()
             c.save()
             rep.status = JobStatus.success

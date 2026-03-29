@@ -28,5 +28,9 @@ reportlab==4.2.5
 prometheus-client==0.21.1
 prometheus-fastapi-instrumentator==7.0.0
 
+# Tests
+pytest==8.3.4
+httpx==0.28.1
+
 # ML stack — install when needed: pip install -r requirements-ml.txt
 # (lightgbm, mlflow, scikit-learn, numpy)

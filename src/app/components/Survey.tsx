@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import { apiFetch, parseErrorMessage } from "@/api/client";
 import { useAuth } from "@/auth/AuthContext";
 
@@ -7,9 +7,22 @@ type Q = { id: number; block_index: number; order_in_block: number; text: string
 
 const CONSENT_KEY = "potential_pd_consent_v1";
 
+const FALLBACK_BLOCK_TITLES: Record<number, string> = {
+  1: "Блок 1",
+  2: "Блок 2",
+  3: "Блок 3",
+  4: "Блок 4",
+  5: "Блок 5",
+};
+
 export default function Survey() {
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
+  const campaignIdParam = searchParams.get("campaign");
+  const campaignId =
+    campaignIdParam && /^\d+$/.test(campaignIdParam) ? Number(campaignIdParam) : null;
   const [questions, setQuestions] = useState<Q[]>([]);
+  const [blockTitles, setBlockTitles] = useState<Record<number, string>>({});
   const [scores, setScores] = useState<Record<number, number>>({});
   const [msg, setMsg] = useState<string | null>(null);
   const [consentOk, setConsentOk] = useState(() => sessionStorage.getItem(CONSENT_KEY) === "1");
@@ -20,7 +33,17 @@ export default function Survey() {
   useEffect(() => {
     void (async () => {
       const res = await apiFetch("/surveys/template");
-      if (res.ok) setQuestions(await res.json());
+      if (!res.ok) return;
+      const data = (await res.json()) as {
+        questions: Q[];
+        block_titles: { block_index: number; title: string }[];
+      };
+      setQuestions(data.questions ?? []);
+      const titles: Record<number, string> = {};
+      for (const row of data.block_titles ?? []) {
+        titles[row.block_index] = row.title;
+      }
+      setBlockTitles(titles);
     })();
   }, []);
 
@@ -80,9 +103,11 @@ export default function Survey() {
       }));
     setSubmitBusy(true);
     try {
+      const payload: Record<string, unknown> = { blocks: bodyBlocks };
+      if (campaignId != null) payload.campaign_id = campaignId;
       const res = await apiFetch("/surveys", {
         method: "POST",
-        body: JSON.stringify({ blocks: bodyBlocks }),
+        body: JSON.stringify(payload),
       });
       if (res.ok) setMsg("Спасибо! Ответы сохранены.");
       else setMsg(await parseErrorMessage(res));
@@ -143,8 +168,12 @@ export default function Survey() {
     <div className="p-6 max-w-2xl space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Опрос ESSI</h1>
+        {campaignId != null && (
+          <p className="text-sm text-[#0052FF] font-medium mt-1">Кампания #{campaignId}</p>
+        )}
         <p className="text-sm text-gray-500 mt-1">
-          Блок {blockStep + 1} из {blocks.length || 1}. Шкала: 1 — не согласен, 5 — полностью согласен.
+          Блок {blockStep + 1} из {blocks.length || 1}. Шкала Лайкерта: 1 — полностью не согласен; 2 — скорее не
+          согласен; 3 — затрудняюсь ответить; 4 — скорее согласен; 5 — полностью согласен.
         </p>
       </div>
       <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
@@ -156,7 +185,8 @@ export default function Survey() {
       {current && (
         <div className="space-y-5 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
           <h2 className="text-sm font-semibold text-[#0052FF] uppercase tracking-wide">
-            Блок {current.blockIndex}
+            Блок {current.blockIndex}.{" "}
+            {blockTitles[current.blockIndex] ?? FALLBACK_BLOCK_TITLES[current.blockIndex] ?? ""}
           </h2>
           {current.questions.map((q) => (
             <div key={q.id} className="space-y-3 pb-4 border-b border-gray-100 last:border-0 last:pb-0">

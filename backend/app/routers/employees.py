@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.orm import Session
 
+from app.date_locale import format_hire_date_ru
 from app.database import get_db
 from app.dependencies import audit, get_current_user, require_roles
 from app.models import Department, Employee, IndexRecord, Survey, User, UserRole
@@ -35,7 +36,7 @@ def _build_list_item(db: Session, emp: Employee) -> EmployeeListItem:
     )
     engagement = essi - 5 if surv else 0.0
     productivity = min(100.0, essi + 10.0)
-    jd = emp.hire_date.strftime("%b %Y") if emp.hire_date else None
+    jd = format_hire_date_ru(emp.hire_date)
     return EmployeeListItem(
         id=emp.id,
         name=emp.name,
@@ -114,10 +115,14 @@ def employee_detail(
         )
         for s in surveys
     ]
+    linked = (
+        db.query(User).filter(User.employee_id == employee_id).first() is not None
+    )
     return EmployeeDetailOut(
         **base.model_dump(),
         surveys=srows,
         redacted=privacy_active_for(user),
+        has_linked_user=linked,
     )
 
 

@@ -258,27 +258,33 @@ export default function Employees() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-6">
         <div className="bg-white rounded-xl border border-gray-200 p-4">
           <div className="text-sm text-gray-600 mb-1">Всего сотрудников</div>
           <div className="text-2xl font-bold text-gray-900">{employeesData.length}</div>
         </div>
         <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <div className="text-sm text-gray-600 mb-1">Отлично</div>
+          <div className="text-sm text-gray-600 mb-1">Высокая устойчивость</div>
           <div className="text-2xl font-bold text-green-600">
-            {employeesData.filter((e) => e.status === "Отлично").length}
+            {employeesData.filter((e) => e.status === "Высокая устойчивость").length}
           </div>
         </div>
         <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <div className="text-sm text-gray-600 mb-1">Хорошо</div>
+          <div className="text-sm text-gray-600 mb-1">Удовлетворительно</div>
           <div className="text-2xl font-bold text-blue-600">
-            {employeesData.filter((e) => e.status === "Хорошо").length}
+            {employeesData.filter((e) => e.status === "Удовлетворительно").length}
           </div>
         </div>
         <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <div className="text-sm text-gray-600 mb-1">В зоне риска</div>
+          <div className="text-sm text-gray-600 mb-1">Зона риска</div>
+          <div className="text-2xl font-bold text-amber-600">
+            {employeesData.filter((e) => e.status === "Зона риска").length}
+          </div>
+        </div>
+        <div className="bg-white rounded-xl border border-gray-200 p-4">
+          <div className="text-sm text-gray-600 mb-1">Кризис</div>
           <div className="text-2xl font-bold text-red-600">
-            {employeesData.filter((e) => e.status === "Риск").length}
+            {employeesData.filter((e) => e.status === "Кризис").length}
           </div>
         </div>
       </div>

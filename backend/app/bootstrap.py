@@ -8,7 +8,7 @@ from datetime import date
 from app.auth import hash_password
 from app.config import settings
 from app.database import SessionLocal
-from app.models import Department, Employee, User, UserRole
+from app.models import Department, Employee, OrganizationSettings, User, UserRole
 
 log = logging.getLogger(__name__)
 
@@ -64,5 +64,19 @@ def ensure_local_demo_accounts() -> None:
     except Exception:
         db.rollback()
         log.exception("Не удалось создать демо-учётки")
+    finally:
+        db.close()
+
+
+def ensure_organization_settings_row() -> None:
+    """Строка organization_settings id=1 для черновиков экономики."""
+    db = SessionLocal()
+    try:
+        if db.query(OrganizationSettings).filter(OrganizationSettings.id == 1).first() is None:
+            db.add(OrganizationSettings(id=1))
+            db.commit()
+    except Exception:
+        db.rollback()
+        log.exception("Не удалось создать organization_settings")
     finally:
         db.close()

@@ -12,12 +12,30 @@ from app.models import (
     Notification,
     Recommendation,
     Survey,
+    SurveyCampaign,
     User,
     UserRole,
 )
-from app.schemas import MySurveyRow, NotificationOut, RecommendationOut
+from app.schemas import EmployeeCampaignOut, MySurveyRow, NotificationOut, RecommendationOut
 
 router = APIRouter(prefix="/me", tags=["me"])
+
+
+def _recommendation_description_for_employee(r: Recommendation) -> str:
+    return r.text_employee if r.text_employee else r.text
+
+
+def _survey_to_row(s: Survey) -> MySurveyRow:
+    return MySurveyRow(
+        id=s.id,
+        survey_date=s.survey_date,
+        source=s.source,
+        score_block1=s.score_block1,
+        score_block2=s.score_block2,
+        score_block3=s.score_block3,
+        score_block4=s.score_block4,
+        score_block5=s.score_block5,
+    )
 
 
 @router.get("/summary")
@@ -67,7 +85,7 @@ def my_recommendations(
             id=r.id,
             department_id=r.department_id,
             title=r.title,
-            description=r.text,
+            description=_recommendation_description_for_employee(r),
             priority=r.priority,
             status=r.status,
             created_at=r.created_at,
@@ -75,6 +93,82 @@ def my_recommendations(
         )
         for r in rows
     ]
+
+
+@router.get("/recommendations/{rec_id}", response_model=RecommendationOut)
+def my_recommendation_detail(
+    rec_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Одна рекомендация отдела сотрудника (для прямых ссылок и клиентов)."""
+    if user.role != UserRole.employee or not user.employee_id:
+        raise HTTPException(status_code=403, detail="Employee only")
+    emp = db.query(Employee).filter(Employee.id == user.employee_id).first()
+    if not emp:
+        raise HTTPException(status_code=404)
+    r = db.query(Recommendation).filter(Recommendation.id == rec_id).first()
+    if not r or r.department_id != emp.department_id:
+        raise HTTPException(status_code=404, detail="Not found")
+    return RecommendationOut(
+        id=r.id,
+        department_id=r.department_id,
+        title=r.title,
+        description=_recommendation_description_for_employee(r),
+        priority=r.priority,
+        status=r.status,
+        created_at=r.created_at,
+        model_version=r.model_version,
+    )
+
+
+@router.get("/campaigns", response_model=list[EmployeeCampaignOut])
+def my_campaigns(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Активные кампании и флаг «уже прошёл» для текущего сотрудника."""
+    if user.role != UserRole.employee or not user.employee_id:
+        raise HTTPException(status_code=403, detail="Employee only")
+    campaigns = (
+        db.query(SurveyCampaign)
+        .filter(SurveyCampaign.status == "active")
+        .order_by(SurveyCampaign.created_at.desc())
+        .all()
+    )
+    out: list[EmployeeCampaignOut] = []
+    for c in campaigns:
+        done = (
+            db.query(Survey)
+            .filter(Survey.employee_id == user.employee_id, Survey.campaign_id == c.id)
+            .first()
+            is not None
+        )
+        out.append(
+            EmployeeCampaignOut(
+                id=c.id,
+                name=c.name,
+                status=c.status,
+                starts_at=c.starts_at,
+                ends_at=c.ends_at,
+                completed=done,
+            )
+        )
+    return out
+
+
+@router.get("/surveys/{survey_id}", response_model=MySurveyRow)
+def my_survey_detail(
+    survey_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    if user.role != UserRole.employee or not user.employee_id:
+        raise HTTPException(status_code=403, detail="Employee only")
+    s = db.query(Survey).filter(Survey.id == survey_id).first()
+    if not s or s.employee_id != user.employee_id:
+        raise HTTPException(status_code=404, detail="Not found")
+    return _survey_to_row(s)
 
 
 @router.get("/surveys", response_model=list[MySurveyRow])
@@ -91,19 +185,7 @@ def my_surveys(
         .limit(100)
         .all()
     )
-    return [
-        MySurveyRow(
-            id=s.id,
-            survey_date=s.survey_date,
-            source=s.source,
-            score_block1=s.score_block1,
-            score_block2=s.score_block2,
-            score_block3=s.score_block3,
-            score_block4=s.score_block4,
-            score_block5=s.score_block5,
-        )
-        for s in rows
-    ]
+    return [_survey_to_row(s) for s in rows]
 
 
 @router.get("/notifications", response_model=list[NotificationOut])
