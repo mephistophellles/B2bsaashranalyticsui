@@ -1,9 +1,12 @@
-import { createBrowserRouter } from "react-router";
+import { createElement } from "react";
+import { createBrowserRouter, Navigate } from "react-router";
 import Layout from "./components/Layout";
 import Dashboard from "./components/Dashboard";
 import Employees from "./components/Employees";
+import EmployeeDetail from "./components/EmployeeDetail";
 import Recommendations from "./components/Recommendations";
 import Departments from "./components/Departments";
+import DepartmentDetail from "./components/DepartmentDetail";
 import Reports from "./components/Reports";
 import Settings from "./components/Settings";
 import Login from "./components/Login";
@@ -28,9 +31,14 @@ export const router = createBrowserRouter([
           {
             Component: RequireManager,
             children: [
-              { path: "dashboard", Component: Dashboard },
+              {
+                path: "dashboard",
+                Component: () => createElement(Navigate, { to: "/", replace: true }),
+              },
               { path: "employees", Component: Employees },
+              { path: "employees/:id", Component: EmployeeDetail },
               { path: "departments", Component: Departments },
+              { path: "departments/:id", Component: DepartmentDetail },
               { path: "reports", Component: Reports },
               { path: "recommendations", Component: Recommendations },
             ],

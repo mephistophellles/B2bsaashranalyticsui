@@ -4,7 +4,7 @@ from app.tasks import process_survey_import, recalculate_indices_task
 
 @celery_app.task(name="surveys.process_import")
 def celery_process_survey_import(job_id: int, file_path: str) -> None:
-    process_survey_import(job_id, file_path)
+    process_survey_import(job_id, file_path, None)
 
 
 @celery_app.task(name="indices.recalculate")

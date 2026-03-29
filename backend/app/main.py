@@ -23,6 +23,7 @@ from app.routers import (
     organization,
     recommendations,
     reports,
+    search,
     surveys,
 )
 
@@ -51,6 +52,7 @@ app.include_router(economy.router, prefix="/api")
 app.include_router(consent.router, prefix="/api")
 app.include_router(admin.router, prefix="/api")
 app.include_router(audit.router, prefix="/api")
+app.include_router(search.router, prefix="/api")
 
 # Middleware must be registered before the app starts (not inside on_event startup).
 Instrumentator().instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)

@@ -93,7 +93,7 @@ async def upload_surveys(
     with open(tmp, "wb") as f:
         shutil.copyfileobj(file.file, f)
     audit(db, user, "survey_upload", "job", {"job_id": job.id})
-    background_tasks.add_task(process_survey_import, job.id, tmp)
+    background_tasks.add_task(process_survey_import, job.id, tmp, user.id)
     return JobOut(
         id=job.id,
         kind=job.kind,

@@ -6,7 +6,7 @@ import pandas as pd
 from sqlalchemy.orm import Session
 
 from app.database import SessionLocal
-from app.models import Job, JobStatus, ReportExport, Survey
+from app.models import Job, JobStatus, Notification, ReportExport, Survey
 from app.services.essi import recompute_indices
 from app.services.recommendations_engine import generate_rule_based, maybe_train_lightgbm_and_log
 
@@ -15,7 +15,9 @@ def _db() -> Session:
     return SessionLocal()
 
 
-def process_survey_import(job_id: int, file_path: str) -> None:
+def process_survey_import(
+    job_id: int, file_path: str, notify_user_id: int | None = None
+) -> None:
     db = _db()
     try:
         job = db.query(Job).filter(Job.id == job_id).first()
@@ -72,6 +74,15 @@ def process_survey_import(job_id: int, file_path: str) -> None:
         job.detail = f"Imported {len(df)} rows"
         job.finished_at = datetime.utcnow()
         db.commit()
+        if notify_user_id:
+            db.add(
+                Notification(
+                    user_id=notify_user_id,
+                    title="Импорт опросов завершён",
+                    body=job.detail,
+                )
+            )
+            db.commit()
     except Exception as e:
         db.rollback()
         job = db.query(Job).filter(Job.id == job_id).first()
@@ -79,6 +90,15 @@ def process_survey_import(job_id: int, file_path: str) -> None:
             job.status = JobStatus.failed
             job.detail = str(e)
             job.finished_at = datetime.utcnow()
+            db.commit()
+        if notify_user_id:
+            db.add(
+                Notification(
+                    user_id=notify_user_id,
+                    title="Ошибка импорта опросов",
+                    body=str(e)[:500],
+                )
+            )
             db.commit()
     finally:
         db.close()

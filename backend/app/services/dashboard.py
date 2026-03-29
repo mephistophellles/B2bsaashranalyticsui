@@ -3,7 +3,8 @@ from datetime import date
 
 from sqlalchemy.orm import Session
 
-from app.models import Department, Employee, IndexRecord, Recommendation, Survey
+from app.models import Department, Employee, IndexRecord, Recommendation, Survey, User
+from app.privacy import mask_display_name
 from app.services.essi import block_scores_from_survey, essi_from_blocks, organization_avg_essi
 
 
@@ -72,7 +73,7 @@ def status_from_essi(essi: float) -> str:
     return "Риск"
 
 
-def build_dashboard(db: Session) -> dict:
+def build_dashboard(db: Session, viewer: User | None = None) -> dict:
     org = organization_avg_essi(db) or 0.0
     series = monthly_org_essi_series(db)
     prev = series[-2]["value"] if len(series) >= 2 else (series[0]["value"] if series else org)
@@ -103,10 +104,15 @@ def build_dashboard(db: Session) -> dict:
         if not emp:
             continue
         dept = db.query(Department).filter(Department.id == emp.department_id).first()
+        display_name = (
+            mask_display_name(emp.id, emp.name, viewer)
+            if viewer is not None
+            else emp.name
+        )
         recent.append(
             {
                 "id": str(emp.id),
-                "name": emp.name,
+                "name": display_name,
                 "department": dept.name if dept else "",
                 "essi": round(ir.essi, 0),
                 "trend": employee_trend(db, emp.id),

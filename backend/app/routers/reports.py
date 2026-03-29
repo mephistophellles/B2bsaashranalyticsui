@@ -21,7 +21,7 @@ def dashboard(
 ):
     if user.role == UserRole.employee:
         raise HTTPException(status_code=403, detail="Forbidden")
-    data = build_dashboard(db)
+    data = build_dashboard(db, viewer=user)
     return DashboardResponse.model_validate(data)
 
 

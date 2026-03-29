@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router";
 import { apiFetch, parseErrorMessage } from "@/api/client";
 import { useAuth } from "@/auth/AuthContext";
 
@@ -14,6 +15,7 @@ export default function Survey() {
   const [consentOk, setConsentOk] = useState(() => sessionStorage.getItem(CONSENT_KEY) === "1");
   const [consentBusy, setConsentBusy] = useState(false);
   const [blockStep, setBlockStep] = useState(0);
+  const [submitBusy, setSubmitBusy] = useState(false);
 
   useEffect(() => {
     void (async () => {
@@ -76,12 +78,19 @@ export default function Survey() {
         block_index: Number(k),
         scores: vals,
       }));
-    const res = await apiFetch("/surveys", {
-      method: "POST",
-      body: JSON.stringify({ blocks: bodyBlocks }),
-    });
-    if (res.ok) setMsg("Спасибо! Ответы сохранены.");
-    else setMsg(await parseErrorMessage(res));
+    setSubmitBusy(true);
+    try {
+      const res = await apiFetch("/surveys", {
+        method: "POST",
+        body: JSON.stringify({ blocks: bodyBlocks }),
+      });
+      if (res.ok) setMsg("Спасибо! Ответы сохранены.");
+      else setMsg(await parseErrorMessage(res));
+    } catch {
+      setMsg("Ошибка сети. Проверьте подключение и попробуйте снова.");
+    } finally {
+      setSubmitBusy(false);
+    }
   }
 
   if (user?.role !== "employee") {
@@ -117,9 +126,15 @@ export default function Survey() {
 
   if (msg === "Спасибо! Ответы сохранены.") {
     return (
-      <div className="p-6 max-w-xl rounded-2xl border border-green-200 bg-green-50/80 text-green-900">
-        <h2 className="text-xl font-bold mb-2">Спасибо!</h2>
-        <p className="text-sm">Ваши ответы сохранены. Вы можете закрыть страницу или перейти в раздел рекомендаций.</p>
+      <div className="p-6 max-w-xl rounded-2xl border border-green-200 bg-green-50/80 text-green-900 space-y-4">
+        <h2 className="text-xl font-bold">Спасибо!</h2>
+        <p className="text-sm">Ваши ответы сохранены.</p>
+        <Link
+          to="/my-recommendations"
+          className="inline-flex px-4 py-2 rounded-xl bg-green-700 text-white text-sm font-medium hover:bg-green-800"
+        >
+          К рекомендациям
+        </Link>
       </div>
     );
   }
@@ -198,10 +213,11 @@ export default function Survey() {
         ) : (
           <button
             type="button"
+            disabled={submitBusy}
             onClick={() => void submit()}
-            className="px-5 py-2.5 rounded-xl font-semibold text-white bg-gradient-to-r from-[#0052FF] to-[#4D7CFF] shadow-md"
+            className="px-5 py-2.5 rounded-xl font-semibold text-white bg-gradient-to-r from-[#0052FF] to-[#4D7CFF] shadow-md disabled:opacity-50"
           >
-            Отправить
+            {submitBusy ? "Отправка…" : "Отправить"}
           </button>
         )}
       </div>

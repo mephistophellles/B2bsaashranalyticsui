@@ -33,5 +33,8 @@ class Settings(BaseSettings):
     max_essi_points: float = 25.0
     num_survey_blocks: int = 5
 
+    # True: руководитель не видит ФИО/email/телефон в списках и дашборде (псевдонимы).
+    privacy_hide_names_for_managers: bool = False
+
 
 settings = Settings()

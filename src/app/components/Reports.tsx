@@ -58,6 +58,7 @@ export default function Reports() {
     loss_turnover: number;
     loss_total: number;
   } | null>(null);
+  const [econErr, setEconErr] = useState<string | null>(null);
 
   useEffect(() => {
     void (async () => {
@@ -162,11 +163,16 @@ export default function Reports() {
   }
 
   async function calcEconomy() {
+    setEconErr(null);
     const res = await apiFetch("/economy/calculate", {
       method: "POST",
       body: JSON.stringify(econ),
     });
-    if (res.ok) setEconResult(await res.json());
+    if (res.ok) {
+      setEconResult(await res.json());
+      return;
+    }
+    setEconErr(await parseErrorMessage(res));
   }
 
   return (
@@ -316,6 +322,9 @@ export default function Reports() {
         >
           Рассчитать
         </button>
+        {econErr && (
+          <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl px-3 py-2">{econErr}</p>
+        )}
         {econResult && (
           <div className="text-sm text-gray-700 space-y-1">
             <div>Потери эффективности: {econResult.loss_efficiency}</div>

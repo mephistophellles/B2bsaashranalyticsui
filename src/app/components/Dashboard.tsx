@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router";
 import {
   TrendingUp,
   TrendingDown,
@@ -50,6 +51,7 @@ type DashboardPayload = {
 };
 
 export default function Dashboard() {
+  const navigate = useNavigate();
   const [data, setData] = useState<DashboardPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -294,7 +296,14 @@ export default function Dashboard() {
                 {recentEmployees.map((employee) => (
                   <tr
                     key={employee.id}
+                    role="link"
+                    tabIndex={0}
                     className="border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer"
+                    onClick={() => navigate(`/employees/${employee.id}`)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ")
+                        navigate(`/employees/${employee.id}`);
+                    }}
                   >
                     <td className="py-3 px-4 text-sm font-medium text-gray-900">{employee.name}</td>
                     <td className="py-3 px-4 text-sm text-gray-600">{employee.department}</td>
@@ -334,9 +343,10 @@ export default function Dashboard() {
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Рекомендации ИИ</h2>
           <div className="space-y-3">
             {recommendations.map((rec) => (
-              <div
+              <Link
                 key={rec.id}
-                className="p-4 border border-gray-200 rounded-lg hover:border-[#0052FF] transition-colors cursor-pointer"
+                to="/recommendations"
+                className="block p-4 border border-gray-200 rounded-lg hover:border-[#0052FF] transition-colors cursor-pointer"
               >
                 <div className="flex items-start justify-between mb-2">
                   <h3 className="font-medium text-gray-900 text-sm">{rec.title}</h3>
@@ -351,7 +361,7 @@ export default function Dashboard() {
                   </span>
                 </div>
                 <p className="text-xs text-gray-600">{rec.description}</p>
-              </div>
+              </Link>
             ))}
           </div>
         </div>

@@ -14,6 +14,11 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str = Field(min_length=6)
+
+
 class UserOut(BaseModel):
     model_config = ConfigDict(from_attributes=True, use_enum_values=True)
 
@@ -161,11 +166,32 @@ class EmployeeListItem(BaseModel):
     join_date: str | None
 
 
+class EmployeeSurveyRow(BaseModel):
+    id: int
+    survey_date: date
+    source: str
+    score_block1: float
+    score_block2: float
+    score_block3: float
+    score_block4: float
+    score_block5: float
+
+
+class EmployeeDetailOut(EmployeeListItem):
+    surveys: list[EmployeeSurveyRow] = []
+    redacted: bool = False
+
+
 class DepartmentListItem(BaseModel):
     id: int
     name: str
     employee_count: int
     avg_essi: float
+
+
+class DepartmentBasic(BaseModel):
+    id: int
+    name: str
 
 
 class ReportCreateRequest(BaseModel):
@@ -185,3 +211,56 @@ class UserCreateRequest(BaseModel):
     password: str = Field(min_length=6)
     role: UserRole
     employee_id: int | None = None
+
+
+class DepartmentCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=255)
+
+
+class DepartmentPatch(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=255)
+
+
+class EmployeeCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=255)
+    department_id: int
+    email: str | None = None
+    phone: str | None = None
+    position: str | None = None
+    hire_date: date | None = None
+
+
+class EmployeePatch(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=255)
+    department_id: int | None = None
+    email: str | None = None
+    phone: str | None = None
+    position: str | None = None
+    hire_date: date | None = None
+
+
+class MySurveyRow(BaseModel):
+    id: int
+    survey_date: date
+    source: str
+    score_block1: float
+    score_block2: float
+    score_block3: float
+    score_block4: float
+    score_block5: float
+
+
+class NotificationOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    title: str
+    body: str | None
+    read_at: datetime | None
+    created_at: datetime
+
+
+class SearchResultItem(BaseModel):
+    kind: str  # employee | department
+    id: int
+    label: str

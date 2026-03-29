@@ -1,8 +1,90 @@
 import { useEffect, useState } from "react";
-import { Settings as SettingsIcon, User, Shield } from "lucide-react";
+import { Settings as SettingsIcon, User, Shield, KeyRound } from "lucide-react";
 import { apiFetch, parseErrorMessage } from "@/api/client";
 import type { UserMe } from "@/api/client";
 import { useAuth } from "@/auth/AuthContext";
+
+function ChangePasswordBlock() {
+  const [current, setCurrent] = useState("");
+  const [next, setNext] = useState("");
+  const [again, setAgain] = useState("");
+  const [msg, setMsg] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setMsg(null);
+    if (next.length < 6) {
+      setMsg("Новый пароль не короче 6 символов");
+      return;
+    }
+    if (next !== again) {
+      setMsg("Пароли не совпадают");
+      return;
+    }
+    setBusy(true);
+    try {
+      const res = await apiFetch("/auth/change-password", {
+        method: "POST",
+        body: JSON.stringify({ current_password: current, new_password: next }),
+      });
+      if (!res.ok) {
+        setMsg(await parseErrorMessage(res));
+        return;
+      }
+      setCurrent("");
+      setNext("");
+      setAgain("");
+      setMsg("Пароль обновлён");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="pt-4 border-t border-gray-100 space-y-3">
+      <h3 className="text-sm font-semibold flex items-center gap-2 text-gray-800">
+        <KeyRound size={16} className="text-[#0052FF]" />
+        Смена пароля
+      </h3>
+      <form onSubmit={(e) => void onSubmit(e)} className="grid gap-2 max-w-sm">
+        <input
+          type="password"
+          className="border rounded-xl px-3 py-2 text-sm"
+          placeholder="Текущий пароль"
+          value={current}
+          onChange={(e) => setCurrent(e.target.value)}
+          required
+        />
+        <input
+          type="password"
+          className="border rounded-xl px-3 py-2 text-sm"
+          placeholder="Новый пароль (мин. 6)"
+          value={next}
+          onChange={(e) => setNext(e.target.value)}
+          required
+          minLength={6}
+        />
+        <input
+          type="password"
+          className="border rounded-xl px-3 py-2 text-sm"
+          placeholder="Повтор нового пароля"
+          value={again}
+          onChange={(e) => setAgain(e.target.value)}
+          required
+        />
+        <button
+          type="submit"
+          disabled={busy}
+          className="px-3 py-2 rounded-xl bg-gray-900 text-white text-sm font-medium disabled:opacity-50 w-fit"
+        >
+          {busy ? "Сохранение…" : "Обновить пароль"}
+        </button>
+        {msg && <p className="text-xs text-gray-600">{msg}</p>}
+      </form>
+    </div>
+  );
+}
 
 function AdminCreateUser() {
   const [username, setUsername] = useState("");
@@ -142,9 +224,7 @@ export default function Settings() {
         ) : (
           <p className="text-sm text-gray-500">Загрузка…</p>
         )}
-        <p className="text-xs text-gray-400 pt-2 border-t border-gray-100">
-          Смена пароля и редактирование контактов — запланированы в следующей итерации (нужен эндпоинт на бэкенде).
-        </p>
+        <ChangePasswordBlock />
       </div>
 
       {user?.role === "admin" && <AdminCreateUser />}
