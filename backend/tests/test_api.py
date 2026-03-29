@@ -97,4 +97,78 @@ def test_economy_defaults_manager(client: TestClient, token_manager: str) -> Non
 def test_me_campaigns_employee(client: TestClient, token_employee: str) -> None:
     r = client.get("/api/me/campaigns", headers={"Authorization": f"Bearer {token_employee}"})
     assert r.status_code == 200
-    assert r.json() == []
+    assert isinstance(r.json(), list)
+
+
+def _survey_blocks_five_by_five() -> list[dict]:
+    return [{"block_index": i, "scores": [3, 3, 3, 3, 3]} for i in range(1, 6)]
+
+
+def test_campaign_dates_visibility_and_submit(client: TestClient, token_manager: str, token_employee: str) -> None:
+    h_m = {"Authorization": f"Bearer {token_manager}"}
+    h_e = {"Authorization": f"Bearer {token_employee}"}
+    r = client.post(
+        "/api/surveys/campaigns",
+        headers=h_m,
+        json={"name": "Future window", "starts_at": "2099-01-01", "ends_at": "2099-12-31"},
+    )
+    assert r.status_code == 201
+    r = client.get("/api/me/campaigns", headers=h_e)
+    assert r.status_code == 200
+    assert all(x["name"] != "Future window" for x in r.json())
+
+    r = client.post("/api/surveys/campaigns", headers=h_m, json={"name": "Open dates"})
+    assert r.status_code == 201
+    r = client.get("/api/me/campaigns", headers=h_e)
+    assert any(x["name"] == "Open dates" for x in r.json())
+
+    r = client.post(
+        "/api/surveys/campaigns",
+        headers=h_m,
+        json={"name": "Summer 2030", "starts_at": "2030-06-01", "ends_at": "2030-08-31"},
+    )
+    assert r.status_code == 201
+    cid_bnd = r.json()["id"]
+
+    me = client.get("/api/auth/me", headers=h_e).json()
+    eid = me["employee_id"]
+    assert eid is not None
+    blocks = _survey_blocks_five_by_five()
+
+    r = client.post(
+        "/api/surveys",
+        headers=h_m,
+        json={
+            "employee_id": eid,
+            "campaign_id": cid_bnd,
+            "survey_date": "2025-01-01",
+            "blocks": blocks,
+        },
+    )
+    assert r.status_code == 400
+    assert "кампании" in r.json().get("detail", "")
+
+    r = client.post(
+        "/api/surveys",
+        headers=h_m,
+        json={
+            "employee_id": eid,
+            "campaign_id": cid_bnd,
+            "survey_date": "2030-09-15",
+            "blocks": blocks,
+        },
+    )
+    assert r.status_code == 400
+    assert "кампании" in r.json().get("detail", "")
+
+    r = client.post(
+        "/api/surveys",
+        headers=h_m,
+        json={
+            "employee_id": eid,
+            "campaign_id": cid_bnd,
+            "survey_date": "2030-07-15",
+            "blocks": blocks,
+        },
+    )
+    assert r.status_code == 201

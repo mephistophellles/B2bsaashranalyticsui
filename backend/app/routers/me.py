@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -23,6 +23,15 @@ router = APIRouter(prefix="/me", tags=["me"])
 
 def _recommendation_description_for_employee(r: Recommendation) -> str:
     return r.text_employee if r.text_employee else r.text
+
+
+def _campaign_visible_for_date(c: SurveyCampaign, today: date) -> bool:
+    """Кампания без границ дат видна всегда; иначе today должна попадать в [starts_at, ends_at]."""
+    if c.starts_at is not None and today < c.starts_at:
+        return False
+    if c.ends_at is not None and today > c.ends_at:
+        return False
+    return True
 
 
 def _survey_to_row(s: Survey) -> MySurveyRow:
@@ -130,6 +139,7 @@ def my_campaigns(
     """Активные кампании и флаг «уже прошёл» для текущего сотрудника."""
     if user.role != UserRole.employee or not user.employee_id:
         raise HTTPException(status_code=403, detail="Employee only")
+    today = date.today()
     campaigns = (
         db.query(SurveyCampaign)
         .filter(SurveyCampaign.status == "active")
@@ -138,6 +148,8 @@ def my_campaigns(
     )
     out: list[EmployeeCampaignOut] = []
     for c in campaigns:
+        if not _campaign_visible_for_date(c, today):
+            continue
         done = (
             db.query(Survey)
             .filter(Survey.employee_id == user.employee_id, Survey.campaign_id == c.id)

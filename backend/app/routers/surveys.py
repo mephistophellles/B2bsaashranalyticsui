@@ -104,11 +104,22 @@ def submit_survey(
         raise HTTPException(status_code=400, detail="employee_id required")
     if user.role == UserRole.employee and user.employee_id != eid:
         raise HTTPException(status_code=403, detail="Forbidden")
+    sdate = body.survey_date or date.today()
     camp_id = body.campaign_id
     if camp_id is not None:
         camp = db.query(SurveyCampaign).filter(SurveyCampaign.id == camp_id).first()
         if not camp or camp.status != "active":
             raise HTTPException(status_code=400, detail="Кампания не найдена или закрыта")
+        if camp.starts_at is not None and sdate < camp.starts_at:
+            raise HTTPException(
+                status_code=400,
+                detail="Дата опроса раньше даты начала кампании",
+            )
+        if camp.ends_at is not None and sdate > camp.ends_at:
+            raise HTTPException(
+                status_code=400,
+                detail="Дата опроса позже даты окончания кампании",
+            )
         if user.role == UserRole.employee:
             dup = (
                 db.query(Survey)
@@ -117,7 +128,6 @@ def submit_survey(
             )
             if dup:
                 raise HTTPException(status_code=400, detail="Опрос по этой кампании уже пройден")
-    sdate = body.survey_date or date.today()
     totals = [0.0] * 5
     for block in body.blocks:
         bi = block.block_index - 1
