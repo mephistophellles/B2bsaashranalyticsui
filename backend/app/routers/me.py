@@ -1,6 +1,6 @@
 from datetime import date, datetime
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -17,21 +17,13 @@ from app.models import (
     UserRole,
 )
 from app.schemas import EmployeeCampaignOut, MySurveyRow, NotificationOut, RecommendationOut
+from app.services.campaign_survey import campaign_visible_for_date
 
 router = APIRouter(prefix="/me", tags=["me"])
 
 
 def _recommendation_description_for_employee(r: Recommendation) -> str:
     return r.text_employee if r.text_employee else r.text
-
-
-def _campaign_visible_for_date(c: SurveyCampaign, today: date) -> bool:
-    """Кампания без границ дат видна всегда; иначе today должна попадать в [starts_at, ends_at]."""
-    if c.starts_at is not None and today < c.starts_at:
-        return False
-    if c.ends_at is not None and today > c.ends_at:
-        return False
-    return True
 
 
 def _survey_to_row(s: Survey) -> MySurveyRow:
@@ -133,6 +125,10 @@ def my_recommendation_detail(
 
 @router.get("/campaigns", response_model=list[EmployeeCampaignOut])
 def my_campaigns(
+    include_closed: bool = Query(
+        False,
+        description="Включить закрытые кампании (архив) после активных",
+    ),
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
@@ -140,15 +136,16 @@ def my_campaigns(
     if user.role != UserRole.employee or not user.employee_id:
         raise HTTPException(status_code=403, detail="Employee only")
     today = date.today()
-    campaigns = (
+    out: list[EmployeeCampaignOut] = []
+
+    active_rows = (
         db.query(SurveyCampaign)
         .filter(SurveyCampaign.status == "active")
         .order_by(SurveyCampaign.created_at.desc())
         .all()
     )
-    out: list[EmployeeCampaignOut] = []
-    for c in campaigns:
-        if not _campaign_visible_for_date(c, today):
+    for c in active_rows:
+        if not campaign_visible_for_date(c, today):
             continue
         done = (
             db.query(Survey)
@@ -166,6 +163,31 @@ def my_campaigns(
                 completed=done,
             )
         )
+
+    if include_closed:
+        closed_rows = (
+            db.query(SurveyCampaign)
+            .filter(SurveyCampaign.status == "closed")
+            .order_by(SurveyCampaign.created_at.desc())
+            .all()
+        )
+        for c in closed_rows:
+            done = (
+                db.query(Survey)
+                .filter(Survey.employee_id == user.employee_id, Survey.campaign_id == c.id)
+                .first()
+                is not None
+            )
+            out.append(
+                EmployeeCampaignOut(
+                    id=c.id,
+                    name=c.name,
+                    status=c.status,
+                    starts_at=c.starts_at,
+                    ends_at=c.ends_at,
+                    completed=done,
+                )
+            )
     return out
 
 

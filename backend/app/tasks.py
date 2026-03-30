@@ -8,6 +8,11 @@ from sqlalchemy.orm import Session
 
 from app.database import SessionLocal
 from app.models import Job, JobStatus, Notification, ReportExport, Survey
+from app.services.campaign_survey import (
+    ALREADY_DONE,
+    CampaignSurveyValidationError,
+    validate_campaign_survey_row,
+)
 from app.services.essi import recompute_indices
 from app.services.recommendations_engine import generate_rule_based, maybe_train_lightgbm_and_log
 
@@ -19,7 +24,10 @@ def _db() -> Session:
 
 
 def process_survey_import(
-    job_id: int, file_path: str, notify_user_id: int | None = None
+    job_id: int,
+    file_path: str,
+    notify_user_id: int | None = None,
+    campaign_id: int | None = None,
 ) -> None:
     db = _db()
     try:
@@ -27,7 +35,11 @@ def process_survey_import(
         if not job:
             log.warning("survey_import job_id=%s: job not found", job_id)
             return
-        log.info("survey_import job_id=%s started", job_id)
+        log.info(
+            "survey_import job_id=%s started campaign_id=%s",
+            job_id,
+            campaign_id,
+        )
         job.status = JobStatus.running
         db.commit()
 
@@ -50,6 +62,7 @@ def process_survey_import(
             if c not in df.columns:
                 raise ValueError(f"Missing column: {c}")
 
+        seen_campaign_pairs: set[tuple[int, int]] = set()
         for _, row in df.iterrows():
             sid = int(row["employee_id"])
             raw_date = row["survey_date"]
@@ -57,6 +70,23 @@ def process_survey_import(
                 sdate = raw_date.date()
             else:
                 sdate = pd.to_datetime(raw_date).date()
+            if campaign_id is not None:
+                pair = (sid, campaign_id)
+                if pair in seen_campaign_pairs:
+                    raise CampaignSurveyValidationError(ALREADY_DONE)
+                seen_campaign_pairs.add(pair)
+            try:
+                validate_campaign_survey_row(
+                    db,
+                    campaign_id,
+                    sdate,
+                    sid,
+                    enforce_duplicate_check=(campaign_id is not None),
+                )
+            except CampaignSurveyValidationError as e:
+                raise CampaignSurveyValidationError(
+                    f"Строка employee_id={sid}, survey_date={sdate}: {e}"
+                ) from e
             db.add(
                 Survey(
                     employee_id=sid,
@@ -67,6 +97,7 @@ def process_survey_import(
                     score_block4=float(row["score_block4"]),
                     score_block5=float(row["score_block5"]),
                     source="import",
+                    campaign_id=campaign_id,
                 )
             )
         db.commit()
@@ -121,7 +152,13 @@ def run_report_export(report_id: int) -> None:
     try:
         rep = db.query(ReportExport).filter(ReportExport.id == report_id).first()
         if not rep:
+            log.warning("report_export report_id=%s: not found", report_id)
             return
+        log.info(
+            "report_export report_id=%s kind=%s started",
+            report_id,
+            rep.kind,
+        )
         rep.status = JobStatus.running
         db.commit()
 
@@ -142,6 +179,7 @@ def run_report_export(report_id: int) -> None:
             rep.status = JobStatus.success
             rep.file_path = path_xlsx
             rep.detail = "Excel generated"
+            log.info("report_export report_id=%s success format=xlsx", report_id)
         else:
             path_pdf = os.path.join(tmpdir, f"report_{report_id}.pdf")
             from reportlab.lib.pagesizes import A4
@@ -160,8 +198,10 @@ def run_report_export(report_id: int) -> None:
             rep.status = JobStatus.success
             rep.file_path = path_pdf
             rep.detail = "PDF generated"
+            log.info("report_export report_id=%s success format=pdf", report_id)
         db.commit()
     except Exception as e:
+        log.exception("report_export report_id=%s failed", report_id)
         db.rollback()
         rep = db.query(ReportExport).filter(ReportExport.id == report_id).first()
         if rep:
@@ -173,11 +213,15 @@ def run_report_export(report_id: int) -> None:
 
 
 def recalculate_indices_task() -> None:
+    log.info("recalculate_indices_task started")
     db = _db()
     try:
         recompute_indices(db, date.today())
         generate_rule_based(db)
         maybe_train_lightgbm_and_log(db)
         db.commit()
+        log.info("recalculate_indices_task finished")
+    except Exception:
+        log.exception("recalculate_indices_task failed")
     finally:
         db.close()

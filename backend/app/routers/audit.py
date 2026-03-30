@@ -10,7 +10,8 @@ router = APIRouter(prefix="/audit", tags=["audit"])
 
 @router.get("/logs")
 def list_logs(
-    limit: int = Query(100, ge=1, le=500),
+    limit: int = Query(50, ge=1, le=500),
+    offset: int = Query(0, ge=0),
     action: str | None = Query(None, description="Фильтр по полю action (подстрока)"),
     db: Session = Depends(get_db),
     user: User = Depends(require_roles(UserRole.admin)),
@@ -18,8 +19,10 @@ def list_logs(
     q = db.query(AuditLog).order_by(AuditLog.created_at.desc())
     if action:
         q = q.filter(AuditLog.action.contains(action))
-    rows = q.limit(limit).all()
-    return [
+    batch = q.offset(offset).limit(limit + 1).all()
+    has_more = len(batch) > limit
+    rows = batch[:limit]
+    items = [
         {
             "id": r.id,
             "user_id": r.user_id,
@@ -30,3 +33,9 @@ def list_logs(
         }
         for r in rows
     ]
+    return {
+        "items": items,
+        "has_more": has_more,
+        "offset": offset,
+        "limit": limit,
+    }

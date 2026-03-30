@@ -3,6 +3,7 @@ import os
 import sys
 import uuid
 import warnings
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -30,7 +31,55 @@ from app.routers import (
     surveys,
 )
 
-app = FastAPI(title=settings.app_name, version="1.0.0")
+
+def _should_warn_insecure_secret() -> bool:
+    if settings.secret_key != INSECURE_DEFAULT_SECRET_KEY:
+        return False
+    url = settings.database_url.lower()
+    if "postgresql" in url or "postgres" in url:
+        return True
+    return os.environ.get("POTENTIAL_ENV", "").lower() == "production"
+
+
+def _abort_if_insecure_secret_in_prod() -> None:
+    if settings.secret_key != INSECURE_DEFAULT_SECRET_KEY:
+        return
+    if settings.allow_insecure_secret:
+        return
+    url = settings.database_url.lower()
+    prodish = (
+        "postgresql" in url
+        or "postgres" in url
+        or os.environ.get("POTENTIAL_ENV", "").lower() == "production"
+    )
+    if not prodish:
+        return
+    logging.getLogger("uvicorn.error").error(
+        "Отказ запуска: дефолтный SECRET_KEY при PostgreSQL или POTENTIAL_ENV=production. "
+        "Задайте SECRET_KEY или (только для разработки) ALLOW_INSECURE_SECRET=true."
+    )
+    sys.exit(1)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    _abort_if_insecure_secret_in_prod()
+    if settings.run_create_all:
+        Base.metadata.create_all(bind=engine)
+    ensure_organization_settings_row()
+    ensure_local_demo_accounts()
+    if _should_warn_insecure_secret():
+        warnings.warn(
+            "SECRET_KEY не задан: задайте переменную окружения SECRET_KEY для продакшена.",
+            stacklevel=1,
+        )
+        logging.getLogger("uvicorn.error").warning(
+            "SECRET_KEY default — задайте SECRET_KEY в окружении."
+        )
+    yield
+
+
+app = FastAPI(title=settings.app_name, version="1.0.0", lifespan=lifespan)
 
 _req_log = logging.getLogger("api.request")
 
@@ -41,12 +90,14 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
         request.state.request_id = rid
         response = await call_next(request)
         response.headers["X-Request-ID"] = rid
+        uid = getattr(request.state, "user_id", None)
         _req_log.info(
-            "%s %s -> %s",
+            "%s %s -> %s user_id=%s",
             request.method,
             request.url.path,
             response.status_code,
-            extra={"request_id": rid},
+            uid,
+            extra={"request_id": rid, "user_id": uid},
         )
         return response
 
@@ -80,51 +131,6 @@ app.include_router(search.router, prefix="/api")
 
 # Middleware must be registered before the app starts (not inside on_event startup).
 Instrumentator().instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
-
-
-def _should_warn_insecure_secret() -> bool:
-    if settings.secret_key != INSECURE_DEFAULT_SECRET_KEY:
-        return False
-    url = settings.database_url.lower()
-    if "postgresql" in url or "postgres" in url:
-        return True
-    return os.environ.get("POTENTIAL_ENV", "").lower() == "production"
-
-
-def _abort_if_insecure_secret_in_prod() -> None:
-    if settings.secret_key != INSECURE_DEFAULT_SECRET_KEY:
-        return
-    if settings.allow_insecure_secret:
-        return
-    url = settings.database_url.lower()
-    prodish = (
-        "postgresql" in url
-        or "postgres" in url
-        or os.environ.get("POTENTIAL_ENV", "").lower() == "production"
-    )
-    if not prodish:
-        return
-    logging.getLogger("uvicorn.error").error(
-        "Отказ запуска: дефолтный SECRET_KEY при PostgreSQL или POTENTIAL_ENV=production. "
-        "Задайте SECRET_KEY или (только для разработки) ALLOW_INSECURE_SECRET=true."
-    )
-    sys.exit(1)
-
-
-@app.on_event("startup")
-def startup():
-    _abort_if_insecure_secret_in_prod()
-    Base.metadata.create_all(bind=engine)
-    ensure_organization_settings_row()
-    ensure_local_demo_accounts()
-    if _should_warn_insecure_secret():
-        warnings.warn(
-            "SECRET_KEY не задан: задайте переменную окружения SECRET_KEY для продакшена.",
-            stacklevel=1,
-        )
-        logging.getLogger("uvicorn.error").warning(
-            "SECRET_KEY default — задайте SECRET_KEY в окружении."
-        )
 
 
 @app.get("/health")

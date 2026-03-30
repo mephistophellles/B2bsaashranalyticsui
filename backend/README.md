@@ -16,7 +16,7 @@ uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 
 По умолчанию SQLite: файл `backend/potential.db` (абсолютный путь, не зависит от каталога, из которого запущен uvicorn). Для PostgreSQL задайте `DATABASE_URL`. Если в БД ещё нет пользователей, при старте API для SQLite создаются демо-учётки; полный датасет — по-прежнему `python -m scripts.seed`.
 
-**Схема БД:** при старте приложения вызывается `Base.metadata.create_all` — это удобно для локального dev, но **не заменяет миграции**: у уже существующей базы `create_all` не добавит новые таблицы и колонки. В продакшене опирайтесь на **`alembic upgrade head`** (см. `alembic/README.md`); не полагайтесь на то, что одного `create_all` достаточно для обновления боевой схемы.
+**Схема БД:** по умолчанию при старте вызывается `Base.metadata.create_all` (удобно для локального dev). В продакшене задайте **`RUN_CREATE_ALL=false`**, чтобы не вызывать `create_all` при деплое, и применяйте только **`alembic upgrade head`** (см. `alembic/README.md`). `create_all` **не заменяет миграции**: у уже существующей базы он не добавит новые таблицы и колонки.
 
 ### Просмотр данных в БД
 
@@ -42,6 +42,8 @@ python scripts/export_openapi.py
 
 Из корня репозитория: `docker compose up --build`.
 
+Образ API ([`Dockerfile`](Dockerfile)) включает каталог `alembic/` и `alembic.ini`. Перед `uvicorn` можно автоматически выполнить **`alembic upgrade head`**: задайте **`RUN_MIGRATIONS_ON_START=true`** (имеет смысл вместе с **`RUN_CREATE_ALL=false`** в проде). Для нескольких реплик Kubernetes миграции лучше запускать одноразовым Job, а в подах переменную не включать.
+
 ## ML (опционально)
 
 ```bash
@@ -55,6 +57,7 @@ pip install -r requirements-ml.txt
 - `POST /api/surveys/upload` возвращает **202** и объект задачи (`Job`). Запись строк в БД выполняется **в том же процессе**, что и API, через **FastAPI `BackgroundTasks`** (после ответа клиенту). Пока uvicorn запущен, импорт дорабатывается; при **перезапуске** процесса во время импорта задача может оборваться.
 - Статус и ошибку смотрите в **`GET /api/jobs/{id}`** (и в уведомлениях пользователя, если настроены).
 - Обязательные колонки: `employee_id`, `survey_date`, `score_block1` … `score_block5`. Значения блоков — **суммы баллов** по каждому из пяти блоков (пять вопросов по шкале 1–5 → максимум **25** на блок, **125** на опрос); индекс ИСУР в продукте: сумма блоков / 125 × 100.
+- Опционально в форме загрузки: **`campaign_id`** — привязка строк к активной кампании; для каждой строки проверяются статус кампании, попадание `survey_date` в интервал кампании и отсутствие дубликата `(employee_id, campaign_id)` (как при прохождении опроса в UI).
 - **Celery** (см. `app/celery_app.py`, `app/celery_tasks.py`) — опционально для вынесения импорта в отдельный worker; в типовой локальной связке **worker не обязателен**, используется `BackgroundTasks`.
 
 ## Продакшен (минимум)
@@ -67,6 +70,8 @@ pip install -r requirements-ml.txt
 | `DATABASE_URL` | Строка подключения PostgreSQL или SQLite |
 | `CORS_ORIGINS` | Список origin фронтенда через запятую |
 | `ALLOW_INSECURE_SECRET` | `true` только в dev: иначе при дефолтном `SECRET_KEY` и Postgres / `POTENTIAL_ENV=production` процесс завершится с ошибкой |
+| `RUN_CREATE_ALL` | `false` в проде: не вызывать `create_all` при старте, только миграции Alembic |
+| `RUN_MIGRATIONS_ON_START` | `true` в контейнере API: перед стартом выполнить `alembic upgrade head` (см. `docker-entrypoint.sh`) |
 
 При старте с дефолтным `SECRET_KEY` на SQLite в лог пишется предупреждение. С **PostgreSQL** или **`POTENTIAL_ENV=production`** без смены секрета процесс **не стартует** (если не задан `ALLOW_INSECURE_SECRET=true`).
 
@@ -75,9 +80,9 @@ pip install -r requirements-ml.txt
 ## Деплой в облако (MVP)
 
 1. **База данных:** управляемый PostgreSQL (Managed Service в облаке провайдера, Neon, RDS и т.п.). В `.env` указать `DATABASE_URL` (драйвер `postgresql+psycopg2://...` или актуальный для вашего стека).
-2. **Backend:** контейнер Docker или PaaS (Render, Fly.io, Railway, Yandex Cloud Run и т.д.) с теми же переменными, что в таблице выше; порт приложения проксировать через HTTPS.
-3. **Frontend:** `npm run build`, статика на CDN/хостинг; задать `VITE_API_BASE_URL` на публичный URL API (с `https://`).
-4. **Схема БД:** применяйте миграции **`alembic upgrade head`** (каталог `backend/alembic/`). При первом развёртывании без истории миграций см. комментарий в `alembic/README.md`.
+2. **Backend:** контейнер Docker или PaaS (Cloud.ru, Render, Fly.io, Yandex Cloud Run и т.д.) с теми же переменными, что в таблице выше; порт приложения проксировать через HTTPS. Сборка из `backend/`: образ уже содержит Alembic; при необходимости включите `RUN_MIGRATIONS_ON_START=true`.
+3. **Frontend:** `npm run build` со значением **`VITE_API_BASE_URL=https://<хост-API>/api`**, либо образ из корня репозитория: `docker build -f Dockerfile.spa --build-arg VITE_API_BASE_URL=https://<хост-API>/api -t potential-ui .` Статику можно отдавать из nginx в образе, загрузить `dist/` в объектное хранилище (S3-совместимое, в т.ч. Cloud.ru) с сайтом/ CDN.
+4. **Схема БД:** миграции **`alembic upgrade head`** (в образе API или CI/CD). При первом развёртывании без истории миграций см. комментарий в `alembic/README.md`.
 
 ## Отчёты
 

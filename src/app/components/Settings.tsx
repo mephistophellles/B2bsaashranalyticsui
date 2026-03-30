@@ -104,32 +104,72 @@ type AuditRow = {
   created_at: string;
 };
 
+type AuditLogsPage = {
+  items: AuditRow[];
+  has_more: boolean;
+  offset: number;
+  limit: number;
+};
+
 function AdminAuditLog() {
   const [rows, setRows] = useState<AuditRow[]>([]);
+  const [hasMore, setHasMore] = useState(false);
   const [actionFilter, setActionFilter] = useState("");
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  async function load() {
+  async function fetchPage(offset: number): Promise<AuditLogsPage | null> {
+    const q = new URLSearchParams({ limit: "50", offset: String(offset) });
+    if (actionFilter.trim()) q.set("action", actionFilter.trim());
+    const res = await apiFetch(`/audit/logs?${q}`);
+    if (!res.ok) {
+      setErr(await parseErrorMessage(res));
+      return null;
+    }
+    const data = (await res.json()) as AuditLogsPage | AuditRow[];
+    if (Array.isArray(data)) {
+      return { items: data, has_more: false, offset: 0, limit: data.length };
+    }
+    return {
+      items: data.items ?? [],
+      has_more: Boolean(data.has_more),
+      offset: data.offset ?? offset,
+      limit: data.limit ?? 50,
+    };
+  }
+
+  async function refresh() {
     setBusy(true);
     setErr(null);
     try {
-      const q = new URLSearchParams({ limit: "200" });
-      if (actionFilter.trim()) q.set("action", actionFilter.trim());
-      const res = await apiFetch(`/audit/logs?${q}`);
-      if (!res.ok) {
-        setErr(await parseErrorMessage(res));
+      const page = await fetchPage(0);
+      if (!page) {
         setRows([]);
+        setHasMore(false);
         return;
       }
-      setRows(await res.json());
+      setRows(page.items);
+      setHasMore(page.has_more);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function loadMore() {
+    setBusy(true);
+    setErr(null);
+    try {
+      const page = await fetchPage(rows.length);
+      if (!page) return;
+      setRows((prev) => [...prev, ...page.items]);
+      setHasMore(page.has_more);
     } finally {
       setBusy(false);
     }
   }
 
   useEffect(() => {
-    void load();
+    void refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- initial load only
   }, []);
 
@@ -155,7 +195,7 @@ function AdminAuditLog() {
         <button
           type="button"
           disabled={busy}
-          onClick={() => void load()}
+          onClick={() => void refresh()}
           className="px-4 py-2 rounded-xl border border-gray-300 font-medium hover:bg-gray-50 disabled:opacity-50"
         >
           {busy ? "Загрузка…" : "Обновить"}
@@ -195,6 +235,16 @@ function AdminAuditLog() {
           </tbody>
         </table>
       </div>
+      {hasMore && (
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => void loadMore()}
+          className="px-4 py-2 rounded-xl border border-[#0052FF] text-[#0052FF] font-medium hover:bg-blue-50 disabled:opacity-50"
+        >
+          {busy ? "Загрузка…" : "Загрузить ещё"}
+        </button>
+      )}
     </div>
   );
 }

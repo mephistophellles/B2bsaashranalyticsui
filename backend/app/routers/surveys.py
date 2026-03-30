@@ -4,7 +4,7 @@ import tempfile
 import uuid
 from datetime import date, datetime
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -24,6 +24,7 @@ from app.schemas import (
     SurveyTemplateQuestion,
     SurveyTemplateResponse,
 )
+from app.services.campaign_survey import CampaignSurveyValidationError, validate_campaign_survey_row
 from app.services.essi import recompute_indices
 from app.services.recommendations_engine import generate_rule_based, maybe_train_lightgbm_and_log
 from app.tasks import process_survey_import
@@ -83,10 +84,33 @@ def patch_campaign(
     c = db.query(SurveyCampaign).filter(SurveyCampaign.id == campaign_id).first()
     if not c:
         raise HTTPException(status_code=404, detail="Not found")
+    data = body.model_dump(exclude_unset=True)
+    dates_change = False
+    if "starts_at" in data and data["starts_at"] != c.starts_at:
+        dates_change = True
+    if "ends_at" in data and data["ends_at"] != c.ends_at:
+        dates_change = True
+    if dates_change:
+        answered = (
+            db.query(Survey).filter(Survey.campaign_id == campaign_id).count()
+        )
+        if answered > 0:
+            raise HTTPException(
+                status_code=409,
+                detail="Нельзя менять даты кампании: уже есть ответы по ней",
+            )
     if body.status is not None:
         if body.status not in ("active", "closed"):
             raise HTTPException(status_code=400, detail="status must be active or closed")
         c.status = body.status
+    if "name" in data and data["name"] is not None:
+        c.name = str(data["name"]).strip()
+    if "starts_at" in data:
+        c.starts_at = data["starts_at"]
+    if "ends_at" in data:
+        c.ends_at = data["ends_at"]
+    if c.starts_at is not None and c.ends_at is not None and c.starts_at > c.ends_at:
+        raise HTTPException(status_code=400, detail="starts_at не может быть позже ends_at")
     db.commit()
     db.refresh(c)
     audit(db, user, "survey_campaign_update", "survey_campaign", {"id": c.id})
@@ -106,28 +130,16 @@ def submit_survey(
         raise HTTPException(status_code=403, detail="Forbidden")
     sdate = body.survey_date or date.today()
     camp_id = body.campaign_id
-    if camp_id is not None:
-        camp = db.query(SurveyCampaign).filter(SurveyCampaign.id == camp_id).first()
-        if not camp or camp.status != "active":
-            raise HTTPException(status_code=400, detail="Кампания не найдена или закрыта")
-        if camp.starts_at is not None and sdate < camp.starts_at:
-            raise HTTPException(
-                status_code=400,
-                detail="Дата опроса раньше даты начала кампании",
-            )
-        if camp.ends_at is not None and sdate > camp.ends_at:
-            raise HTTPException(
-                status_code=400,
-                detail="Дата опроса позже даты окончания кампании",
-            )
-        if user.role == UserRole.employee:
-            dup = (
-                db.query(Survey)
-                .filter(Survey.employee_id == eid, Survey.campaign_id == camp_id)
-                .first()
-            )
-            if dup:
-                raise HTTPException(status_code=400, detail="Опрос по этой кампании уже пройден")
+    try:
+        validate_campaign_survey_row(
+            db,
+            camp_id,
+            sdate,
+            eid,
+            enforce_duplicate_check=(user.role == UserRole.employee),
+        )
+    except CampaignSurveyValidationError as err:
+        raise HTTPException(status_code=400, detail=str(err)) from err
     totals = [0.0] * 5
     for block in body.blocks:
         bi = block.block_index - 1
@@ -159,9 +171,14 @@ def submit_survey(
 async def upload_surveys(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
+    campaign_id: int | None = Form(None),
     db: Session = Depends(get_db),
     user: User = Depends(require_roles(UserRole.manager, UserRole.admin)),
 ):
+    if campaign_id is not None:
+        camp = db.query(SurveyCampaign).filter(SurveyCampaign.id == campaign_id).first()
+        if not camp or camp.status != "active":
+            raise HTTPException(status_code=400, detail="Кампания не найдена или закрыта")
     job = Job(kind="survey_import", status=JobStatus.pending)
     db.add(job)
     db.commit()
@@ -170,8 +187,8 @@ async def upload_surveys(
     tmp = os.path.join(tempfile.gettempdir(), f"potential_upload_{job.id}_{uuid.uuid4().hex}{ext}")
     with open(tmp, "wb") as f:
         shutil.copyfileobj(file.file, f)
-    audit(db, user, "survey_upload", "job", {"job_id": job.id})
-    background_tasks.add_task(process_survey_import, job.id, tmp, user.id)
+    audit(db, user, "survey_upload", "job", {"job_id": job.id, "campaign_id": campaign_id})
+    background_tasks.add_task(process_survey_import, job.id, tmp, user.id, campaign_id)
     return JobOut(
         id=job.id,
         kind=job.kind,

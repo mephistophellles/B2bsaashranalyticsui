@@ -16,8 +16,6 @@ import Survey from "./components/Survey";
 import RoleHome from "./components/RoleHome";
 import MyRecommendations from "./components/MyRecommendations";
 import MySurveyDetail from "./components/MySurveyDetail";
-import SurveyCampaigns from "./components/SurveyCampaigns";
-
 export const router = createBrowserRouter([
   { path: "/login", Component: Login },
   {
@@ -44,7 +42,6 @@ export const router = createBrowserRouter([
               { path: "departments", Component: Departments },
               { path: "departments/:id", Component: DepartmentDetail },
               { path: "reports", Component: Reports },
-              { path: "survey-campaigns", Component: SurveyCampaigns },
               { path: "recommendations", Component: Recommendations },
               { path: "recommendations/:id", Component: Recommendations },
             ],

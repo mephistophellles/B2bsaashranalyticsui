@@ -9,7 +9,6 @@ import {
   Settings,
   ChevronDown,
   ClipboardList,
-  Megaphone,
 } from "lucide-react";
 import { useAuth } from "@/auth/AuthContext";
 import GlobalSearch from "./GlobalSearch";
@@ -20,7 +19,6 @@ const managerMenu = [
   { path: "/employees", label: "Сотрудники", icon: Users },
   { path: "/departments", label: "Отделы", icon: Building2 },
   { path: "/reports", label: "Отчеты", icon: FileText },
-  { path: "/survey-campaigns", label: "Кампании опросов", icon: Megaphone },
   { path: "/recommendations", label: "Рекомендации", icon: Lightbulb },
   { path: "/settings", label: "Настройки", icon: Settings },
 ];

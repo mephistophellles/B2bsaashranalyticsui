@@ -40,5 +40,8 @@ class Settings(BaseSettings):
     # Только для dev: разрешить старт с дефолтным SECRET_KEY при Postgres / POTENTIAL_ENV=production.
     allow_insecure_secret: bool = False
 
+    # В продакшене задайте RUN_CREATE_ALL=false и применяйте только alembic upgrade head.
+    run_create_all: bool = True
+
 
 settings = Settings()

@@ -196,6 +196,9 @@ class SurveyCampaignOut(BaseModel):
 
 class SurveyCampaignPatch(BaseModel):
     status: str | None = None
+    name: str | None = Field(default=None, min_length=1, max_length=255)
+    starts_at: date | None = None
+    ends_at: date | None = None
 
 
 class EmployeeCampaignOut(BaseModel):
