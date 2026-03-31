@@ -36,6 +36,7 @@ type DashboardPayload = {
   productivity_pct: number;
   productivity_delta_pct: number;
   essi_series: { id: string; month: string; value: number }[];
+  block_percentages: { block_index: number; title: string; value: number }[];
   department_bars: { id: string; department: string; essi: number }[];
   recent_employees: {
     id: string;
@@ -359,6 +360,27 @@ export default function Dashboard() {
         </div>
 
         <div className="bg-white rounded-xl border border-gray-200 p-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Блоки: % от максимума по методике</h2>
+          {data.block_percentages.length === 0 ? (
+            <p className="text-sm text-gray-500">Пока недостаточно данных.</p>
+          ) : (
+            <div className="space-y-3">
+              {data.block_percentages.map((block) => (
+                <div key={block.block_index}>
+                  <div className="flex items-center justify-between gap-3 text-sm mb-1">
+                    <span className="text-gray-700">{block.title}</span>
+                    <span className="font-semibold text-gray-900">{block.value}%</span>
+                  </div>
+                  <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
+                    <div className="h-full rounded-full bg-[#0052FF]" style={{ width: `${block.value}%` }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="bg-white rounded-xl border border-gray-200 p-6 lg:col-span-2">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Сравнение отделов</h2>
           {departmentData.length === 0 ? (
             <p className="text-sm text-gray-500">Нет данных по отделам.</p>

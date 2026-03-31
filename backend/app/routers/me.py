@@ -18,6 +18,7 @@ from app.models import (
 )
 from app.schemas import EmployeeCampaignOut, MySurveyRow, NotificationOut, RecommendationOut
 from app.services.campaign_survey import campaign_visible_for_date
+from app.services.essi import block_percentages, essi_from_blocks
 
 router = APIRouter(prefix="/me", tags=["me"])
 
@@ -27,15 +28,24 @@ def _recommendation_description_for_employee(r: Recommendation) -> str:
 
 
 def _survey_to_row(s: Survey) -> MySurveyRow:
+    scores = [
+        s.score_block1,
+        s.score_block2,
+        s.score_block3,
+        s.score_block4,
+        s.score_block5,
+    ]
     return MySurveyRow(
         id=s.id,
         survey_date=s.survey_date,
         source=s.source,
-        score_block1=s.score_block1,
-        score_block2=s.score_block2,
-        score_block3=s.score_block3,
-        score_block4=s.score_block4,
-        score_block5=s.score_block5,
+        score_block1=scores[0],
+        score_block2=scores[1],
+        score_block3=scores[2],
+        score_block4=scores[3],
+        score_block5=scores[4],
+        essi=essi_from_blocks(scores),
+        block_percentages=block_percentages(scores),
     )
 
 

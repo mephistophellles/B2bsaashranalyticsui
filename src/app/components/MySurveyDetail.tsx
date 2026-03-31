@@ -3,8 +3,6 @@ import { Link, useParams } from "react-router";
 import { ArrowLeft, ClipboardList } from "lucide-react";
 import { apiFetch, parseErrorMessage } from "@/api/client";
 
-const MAX_ESSI_POINTS = 125;
-
 type SurveyDetail = {
   id: number;
   survey_date: string;
@@ -14,17 +12,9 @@ type SurveyDetail = {
   score_block3: number;
   score_block4: number;
   score_block5: number;
+  essi: number;
+  block_percentages: number[];
 };
-
-function essiFromBlocks(row: SurveyDetail): number {
-  const total =
-    row.score_block1 +
-    row.score_block2 +
-    row.score_block3 +
-    row.score_block4 +
-    row.score_block5;
-  return Math.round((total / MAX_ESSI_POINTS) * 100 * 100) / 100;
-}
 
 export default function MySurveyDetail() {
   const { id } = useParams<{ id: string }>();
@@ -71,7 +61,6 @@ export default function MySurveyDetail() {
     row.score_block4,
     row.score_block5,
   ];
-  const essi = essiFromBlocks(row);
   const dateLabel = new Date(row.survey_date).toLocaleDateString("ru-RU", {
     day: "numeric",
     month: "long",
@@ -99,8 +88,8 @@ export default function MySurveyDetail() {
 
       <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm text-center">
         <div className="text-xs text-gray-500 uppercase tracking-wide">Итоговый ESSI</div>
-        <div className="text-4xl font-bold text-[#0052FF] mt-1">{essi}</div>
-        <p className="text-xs text-gray-500 mt-2">Сумма баллов по 5 блокам / 125 × 100</p>
+        <div className="text-4xl font-bold text-[#0052FF] mt-1">{row.essi}</div>
+        <p className="text-xs text-gray-500 mt-2">Процент от максимума по методике: сумма block sums / 125 × 100</p>
       </div>
 
       <div className="rounded-2xl border border-gray-200 bg-white overflow-hidden shadow-sm">
@@ -109,6 +98,7 @@ export default function MySurveyDetail() {
             <tr className="border-b border-gray-100 bg-gray-50/80 text-left text-gray-600">
               <th className="px-4 py-2 font-medium">Блок</th>
               <th className="px-4 py-2 font-medium text-right">Сумма баллов</th>
+              <th className="px-4 py-2 font-medium text-right">% от максимума по блоку</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
@@ -116,6 +106,9 @@ export default function MySurveyDetail() {
               <tr key={i}>
                 <td className="px-4 py-2.5 text-gray-900">{i + 1}</td>
                 <td className="px-4 py-2.5 text-right tabular-nums text-gray-800">{v}</td>
+                <td className="px-4 py-2.5 text-right tabular-nums text-gray-800">
+                  {row.block_percentages[i]?.toFixed(1)}%
+                </td>
               </tr>
             ))}
           </tbody>
