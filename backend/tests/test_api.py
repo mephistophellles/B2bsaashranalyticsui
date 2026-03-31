@@ -178,7 +178,7 @@ def test_campaign_dates_visibility_and_submit(client: TestClient, token_manager:
             "blocks": blocks,
         },
     )
-    assert r.status_code == 400
+    assert r.status_code == 422
     assert "кампании" in r.json().get("detail", "")
 
     r = client.post(
@@ -191,7 +191,7 @@ def test_campaign_dates_visibility_and_submit(client: TestClient, token_manager:
             "blocks": blocks,
         },
     )
-    assert r.status_code == 400
+    assert r.status_code == 422
     assert "кампании" in r.json().get("detail", "")
 
     r = client.post(
@@ -233,11 +233,119 @@ def test_survey_import_with_campaign_duplicate_fails(
     assert done["status"] == "success", done.get("detail")
 
     r = client.post("/api/surveys/upload", headers=h_m, files=files, data=data)
-    assert r.status_code == 202
-    done2 = _wait_import_job(client, r.json()["id"], h_m)
-    assert done2["status"] == "failed"
-    detail = (done2.get("detail") or "").lower()
+    assert r.status_code == 422
+    detail = (r.json().get("detail") or "").lower()
     assert "пройден" in detail or "кампании" in detail
+
+
+def test_survey_submit_validation_requires_five_scores_per_block(client: TestClient, token_employee: str) -> None:
+    r = client.post(
+        "/api/surveys",
+        headers={"Authorization": f"Bearer {token_employee}"},
+        json={
+            "blocks": [
+                {"block_index": 1, "scores": [3, 3, 3, 3]},
+                {"block_index": 2, "scores": [3, 3, 3, 3, 3]},
+                {"block_index": 3, "scores": [3, 3, 3, 3, 3]},
+                {"block_index": 4, "scores": [3, 3, 3, 3, 3]},
+                {"block_index": 5, "scores": [3, 3, 3, 3, 3]},
+            ]
+        },
+    )
+    assert r.status_code == 422
+    assert "ровно 5 ответов" in r.json()["detail"]
+
+
+def test_survey_submit_validation_requires_answer_range_one_to_five(client: TestClient, token_employee: str) -> None:
+    blocks = _survey_blocks_five_by_five()
+    blocks[0]["scores"] = [3, 3, 0, 3, 3]
+    r = client.post(
+        "/api/surveys",
+        headers={"Authorization": f"Bearer {token_employee}"},
+        json={"blocks": blocks},
+    )
+    assert r.status_code == 422
+    assert "диапазоне 1..5" in r.json()["detail"]
+
+
+def test_survey_submit_validation_requires_all_blocks(client: TestClient, token_employee: str) -> None:
+    r = client.post(
+        "/api/surveys",
+        headers={"Authorization": f"Bearer {token_employee}"},
+        json={"blocks": _survey_blocks_five_by_five()[:4]},
+    )
+    assert r.status_code == 422
+    assert "ровно 5 блоков" in r.json()["detail"]
+
+
+def test_survey_import_accepts_documented_alias_columns(client: TestClient, token_manager: str, token_employee: str) -> None:
+    me = client.get("/api/auth/me", headers={"Authorization": f"Bearer {token_employee}"}).json()
+    eid = me["employee_id"]
+    assert eid is not None
+    today = date.today().isoformat()
+    csv_body = (
+        "employee_id,date,block_o,block_s,block_m,block_j,block_w\n"
+        f"{eid},{today},15,15,15,15,15\n"
+    )
+    files = {"file": ("imp_alias.csv", csv_body.encode("utf-8"), "text/csv")}
+    r = client.post("/api/surveys/upload", headers={"Authorization": f"Bearer {token_manager}"}, files=files)
+    assert r.status_code == 202
+    done = _wait_import_job(client, r.json()["id"], {"Authorization": f"Bearer {token_manager}"})
+    assert done["status"] == "success", done.get("detail")
+
+
+def test_survey_import_rejects_block_sum_out_of_range(client: TestClient, token_manager: str, token_employee: str) -> None:
+    me = client.get("/api/auth/me", headers={"Authorization": f"Bearer {token_employee}"}).json()
+    eid = me["employee_id"]
+    assert eid is not None
+    today = date.today().isoformat()
+    csv_body = (
+        "employee_id,survey_date,score_block1,score_block2,score_block3,score_block4,score_block5\n"
+        f"{eid},{today},4,15,15,15,15\n"
+    )
+    files = {"file": ("imp_bad.csv", csv_body.encode("utf-8"), "text/csv")}
+    r = client.post("/api/surveys/upload", headers={"Authorization": f"Bearer {token_manager}"}, files=files)
+    assert r.status_code == 422
+    assert "диапазоне 5..25" in r.json()["detail"]
+
+
+def test_survey_import_rejects_conflicting_alias_columns(client: TestClient, token_manager: str, token_employee: str) -> None:
+    me = client.get("/api/auth/me", headers={"Authorization": f"Bearer {token_employee}"}).json()
+    eid = me["employee_id"]
+    assert eid is not None
+    today = date.today().isoformat()
+    csv_body = (
+        "employee_id,survey_date,score_block1,block_o,score_block2,score_block3,score_block4,score_block5\n"
+        f"{eid},{today},15,20,15,15,15,15\n"
+    )
+    files = {"file": ("imp_conflict.csv", csv_body.encode("utf-8"), "text/csv")}
+    r = client.post("/api/surveys/upload", headers={"Authorization": f"Bearer {token_manager}"}, files=files)
+    assert r.status_code == 422
+    assert "конфликт колонок" in r.json()["detail"].lower()
+
+
+def test_dashboard_returns_block_percentages(client: TestClient, token_manager: str) -> None:
+    emp = client.post("/api/auth/login", json={"username": "employee", "password": "employee123"})
+    assert emp.status_code == 200
+    employee_token = emp.json()["access_token"]
+    employee_me = client.get("/api/auth/me", headers={"Authorization": f"Bearer {employee_token}"}).json()
+    eid = employee_me["employee_id"]
+    assert eid is not None
+    submit = client.post(
+        "/api/surveys",
+        headers={"Authorization": f"Bearer {token_manager}"},
+        json={
+            "employee_id": eid,
+            "blocks": _survey_blocks_five_by_five(),
+        },
+    )
+    assert submit.status_code == 201
+    r = client.get("/api/reports/dashboard", headers={"Authorization": f"Bearer {token_manager}"})
+    assert r.status_code == 200
+    data = r.json()
+    assert "block_percentages" in data
+    assert isinstance(data["block_percentages"], list)
+    assert len(data["block_percentages"]) == 5
 
 
 def test_recommendation_description_employee_vs_manager(

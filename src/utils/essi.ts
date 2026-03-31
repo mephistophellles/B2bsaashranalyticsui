@@ -1,4 +1,4 @@
-/** Согласовано с backend: сумма блоков / 125 × 100 (ИСУР). */
+/** Legacy helper. Canonical ESSI and block percentages must come from backend responses. */
 export const MAX_ESSI_POINTS = 125;
 
 export function essiFromBlockSums(

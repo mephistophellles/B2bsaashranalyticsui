@@ -341,7 +341,7 @@ export default function Reports() {
             <Upload size={20} /> Загрузка опросов
           </h2>
           <p className="text-sm text-gray-600">
-            Колонки: employee_id, survey_date, score_block1..score_block5
+            Колонки: employee_id, survey_date, score_block1..score_block5. Каждый score_blockX — сумма по 5 вопросам блока, диапазон 5..25.
           </p>
           <div className="flex flex-col sm:flex-row sm:items-center gap-3">
             <input

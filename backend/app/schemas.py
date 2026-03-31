@@ -1,5 +1,5 @@
 from datetime import date, datetime
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.models import UserRole
 
@@ -80,6 +80,12 @@ class BlockMetricOut(BaseModel):
     action_hint: str
 
 
+class DashboardBlockPercentage(BaseModel):
+    block_index: int
+    title: str
+    value: float
+
+
 class DashboardResponse(BaseModel):
     essi_index: float
     essi_delta_pct: float
@@ -95,6 +101,7 @@ class DashboardResponse(BaseModel):
     productivity_delta_pct: float
     essi_series: list[DashboardSeriesPoint]
     essi_blocks: list[BlockMetricOut] = []
+    block_percentages: list[DashboardBlockPercentage] = []
     department_bars: list[DashboardDepartmentBar]
     recent_employees: list[DashboardEmployeeRow]
     recommendations_preview: list[DashboardRecommendation]
@@ -102,7 +109,16 @@ class DashboardResponse(BaseModel):
 
 class SurveyBlockAnswer(BaseModel):
     block_index: int = Field(ge=1, le=5)
-    scores: list[float] = Field(min_length=1)
+    scores: list[float]
+
+    @model_validator(mode="after")
+    def validate_scores(self):
+        if len(self.scores) != 5:
+            raise ValueError(f"Блок {self.block_index}: должно быть ровно 5 ответов")
+        for score in self.scores:
+            if score < 1 or score > 5:
+                raise ValueError(f"Блок {self.block_index}: каждый ответ должен быть в диапазоне 1..5")
+        return self
 
 
 class SurveySubmitRequest(BaseModel):
@@ -110,6 +126,15 @@ class SurveySubmitRequest(BaseModel):
     survey_date: date | None = None
     campaign_id: int | None = None
     blocks: list[SurveyBlockAnswer]
+
+    @model_validator(mode="after")
+    def validate_blocks(self):
+        if len(self.blocks) != 5:
+            raise ValueError("Опрос должен содержать ровно 5 блоков")
+        indexes = [block.block_index for block in self.blocks]
+        if sorted(indexes) != [1, 2, 3, 4, 5]:
+            raise ValueError("Опрос должен содержать блоки 1..5 без повторов и пропусков")
+        return self
 
 
 class SurveyTemplateQuestion(BaseModel):
@@ -264,6 +289,8 @@ class EmployeeSurveyRow(BaseModel):
     score_block3: float
     score_block4: float
     score_block5: float
+    essi: float
+    block_percentages: list[float]
 
 
 class EmployeeDetailOut(EmployeeListItem):
@@ -434,6 +461,8 @@ class MySurveyRow(BaseModel):
     score_block3: float
     score_block4: float
     score_block5: float
+    essi: float
+    block_percentages: list[float]
 
 
 class NotificationOut(BaseModel):

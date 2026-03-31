@@ -21,6 +21,7 @@ from app.services.dashboard import (
     employee_trend,
     status_from_essi,
 )
+from app.services.essi import block_percentages, essi_from_blocks
 
 router = APIRouter(prefix="/employees", tags=["employees"])
 
@@ -173,6 +174,12 @@ def employee_detail(
             score_block3=s.score_block3,
             score_block4=s.score_block4,
             score_block5=s.score_block5,
+            essi=essi_from_blocks(
+                [s.score_block1, s.score_block2, s.score_block3, s.score_block4, s.score_block5]
+            ),
+            block_percentages=block_percentages(
+                [s.score_block1, s.score_block2, s.score_block3, s.score_block4, s.score_block5]
+            ),
         )
         for s in surveys
     ]

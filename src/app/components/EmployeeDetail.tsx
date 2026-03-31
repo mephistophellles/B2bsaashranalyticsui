@@ -2,7 +2,6 @@ import { Fragment, useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { ArrowLeft, ChevronDown, ChevronRight, Trash2 } from "lucide-react";
 import { apiFetch, parseErrorMessage } from "@/api/client";
-import { essiFromBlockSums } from "@/utils/essi";
 
 type SurveyRow = {
   id: number;
@@ -13,6 +12,8 @@ type SurveyRow = {
   score_block3: number;
   score_block4: number;
   score_block5: number;
+  essi: number;
+  block_percentages: number[];
 };
 
 type Detail = {
@@ -385,13 +386,6 @@ export default function EmployeeDetail() {
               <tbody>
                 {data.surveys.map((s) => {
                   const open = expandedSurveyId === s.id;
-                  const surveyEssi = essiFromBlockSums(
-                    s.score_block1,
-                    s.score_block2,
-                    s.score_block3,
-                    s.score_block4,
-                    s.score_block5,
-                  );
                   return (
                     <Fragment key={s.id}>
                       <tr
@@ -419,14 +413,14 @@ export default function EmployeeDetail() {
                         <tr className="bg-slate-50 border-b border-gray-100">
                           <td colSpan={4} className="px-4 py-3 text-sm text-gray-700">
                             <div className="font-semibold text-gray-900 mb-2">
-                              ИСУР по этому опросу: {surveyEssi} (сумма блоков / 125 × 100)
+                              ИСУР по этому опросу: {s.essi} (процент от максимума по методике)
                             </div>
                             <ul className="list-disc list-inside space-y-1 text-gray-600">
-                              <li>Блок 1: {s.score_block1.toFixed(1)}</li>
-                              <li>Блок 2: {s.score_block2.toFixed(1)}</li>
-                              <li>Блок 3: {s.score_block3.toFixed(1)}</li>
-                              <li>Блок 4: {s.score_block4.toFixed(1)}</li>
-                              <li>Блок 5: {s.score_block5.toFixed(1)}</li>
+                              <li>Блок 1: {s.score_block1.toFixed(1)} · {s.block_percentages[0]?.toFixed(1)}%</li>
+                              <li>Блок 2: {s.score_block2.toFixed(1)} · {s.block_percentages[1]?.toFixed(1)}%</li>
+                              <li>Блок 3: {s.score_block3.toFixed(1)} · {s.block_percentages[2]?.toFixed(1)}%</li>
+                              <li>Блок 4: {s.score_block4.toFixed(1)} · {s.block_percentages[3]?.toFixed(1)}%</li>
+                              <li>Блок 5: {s.score_block5.toFixed(1)} · {s.block_percentages[4]?.toFixed(1)}%</li>
                             </ul>
                           </td>
                         </tr>
