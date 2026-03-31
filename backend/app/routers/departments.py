@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -9,6 +9,7 @@ from app.schemas import (
     DepartmentCreate,
     DepartmentIndexOut,
     DepartmentListItem,
+    DepartmentListPage,
     DepartmentPatch,
 )
 from app.services.essi import department_avg_essi
@@ -32,6 +33,54 @@ def list_departments(
             DepartmentListItem(id=d.id, name=d.name, employee_count=cnt, avg_essi=avg)
         )
     return out
+
+
+@router.get("/page", response_model=DepartmentListPage)
+def list_departments_page(
+    q: str | None = Query(None, description="Поиск по названию"),
+    sort_by: str = Query("name", pattern="^(name|employee_count|avg_essi)$"),
+    sort_order: str = Query("asc", pattern="^(asc|desc)$"),
+    limit: int = Query(20, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    if user.role == UserRole.employee:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    rows: list[DepartmentListItem] = []
+    for d in db.query(Department).all():
+        emps = db.query(Employee).filter(Employee.department_id == d.id).all()
+        rows.append(
+            DepartmentListItem(
+                id=d.id,
+                name=d.name,
+                employee_count=len(emps),
+                avg_essi=department_avg_essi(db, d.id) or 0.0,
+            )
+        )
+
+    if q:
+        needle = q.strip().lower()
+        rows = [x for x in rows if needle in x.name.lower()]
+
+    reverse = sort_order == "desc"
+    if sort_by == "employee_count":
+        rows.sort(key=lambda x: x.employee_count, reverse=reverse)
+    elif sort_by == "avg_essi":
+        rows.sort(key=lambda x: x.avg_essi, reverse=reverse)
+    else:
+        rows.sort(key=lambda x: x.name.lower(), reverse=reverse)
+
+    total = len(rows)
+    items = rows[offset : offset + limit]
+    return DepartmentListPage(
+        items=items,
+        total=total,
+        limit=limit,
+        offset=offset,
+        has_more=(offset + limit) < total,
+    )
 
 
 @router.post("", response_model=DepartmentListItem, status_code=status.HTTP_201_CREATED)

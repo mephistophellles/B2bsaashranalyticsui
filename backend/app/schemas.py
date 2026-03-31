@@ -131,6 +131,14 @@ class JobOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class JobListPage(BaseModel):
+    items: list[JobOut]
+    total: int
+    limit: int
+    offset: int
+    has_more: bool
+
+
 class RecommendationOut(BaseModel):
     id: int
     department_id: int
@@ -229,6 +237,14 @@ class EmployeeListItem(BaseModel):
     join_date: str | None
 
 
+class EmployeeListPage(BaseModel):
+    items: list[EmployeeListItem]
+    total: int
+    limit: int
+    offset: int
+    has_more: bool
+
+
 class EmployeeSurveyRow(BaseModel):
     id: int
     survey_date: date
@@ -253,6 +269,14 @@ class DepartmentListItem(BaseModel):
     avg_essi: float
 
 
+class DepartmentListPage(BaseModel):
+    items: list[DepartmentListItem]
+    total: int
+    limit: int
+    offset: int
+    has_more: bool
+
+
 class DepartmentBasic(BaseModel):
     id: int
     name: str
@@ -270,11 +294,50 @@ class ReportExportOut(BaseModel):
     detail: str | None = None
 
 
+class ReportExportListItem(ReportExportOut):
+    created_at: datetime
+
+
+class ReportExportListPage(BaseModel):
+    items: list[ReportExportListItem]
+    total: int
+    limit: int
+    offset: int
+    has_more: bool
+
+
 class UserCreateRequest(BaseModel):
     username: str = Field(min_length=2)
     password: str = Field(min_length=6)
     role: UserRole
     employee_id: int | None = None
+
+
+class UserAdminOut(BaseModel):
+    id: int
+    username: str
+    role: UserRole
+    employee_id: int | None = None
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True, use_enum_values=True)
+
+
+class UserAdminListPage(BaseModel):
+    items: list[UserAdminOut]
+    total: int
+    limit: int
+    offset: int
+    has_more: bool
+
+
+class UserAdminPatch(BaseModel):
+    role: UserRole | None = None
+    employee_id: int | None = None
+
+
+class UserAdminResetPassword(BaseModel):
+    new_password: str = Field(min_length=6)
 
 
 class DepartmentCreate(BaseModel):

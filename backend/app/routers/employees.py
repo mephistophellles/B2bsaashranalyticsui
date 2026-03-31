@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.orm import Session
 
 from app.date_locale import format_hire_date_ru
@@ -10,6 +10,7 @@ from app.schemas import (
     EmployeeCreate,
     EmployeeDetailOut,
     EmployeeListItem,
+    EmployeeListPage,
     EmployeePatch,
     EmployeeSurveyRow,
     EmployeeIndexOut,
@@ -62,6 +63,60 @@ def list_employees(
         raise HTTPException(status_code=403, detail="Forbidden")
     out = [_build_list_item(db, emp) for emp in db.query(Employee).all()]
     return [mask_employee_list_item(x, user) for x in out]
+
+
+@router.get("/page", response_model=EmployeeListPage)
+def list_employees_page(
+    q: str | None = Query(None, description="Поиск по имени/email/должности"),
+    department_id: int | None = Query(None),
+    status_filter: str | None = Query(None, alias="status"),
+    sort_by: str = Query("name", pattern="^(name|essi|department|status)$"),
+    sort_order: str = Query("asc", pattern="^(asc|desc)$"),
+    limit: int = Query(20, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    if user.role == UserRole.employee:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    emps_query = db.query(Employee)
+    if department_id is not None:
+        emps_query = emps_query.filter(Employee.department_id == department_id)
+
+    rows = [mask_employee_list_item(_build_list_item(db, emp), user) for emp in emps_query.all()]
+
+    if q:
+        needle = q.strip().lower()
+        rows = [
+            x
+            for x in rows
+            if needle in x.name.lower()
+            or needle in (x.email or "").lower()
+            or needle in (x.position or "").lower()
+        ]
+    if status_filter:
+        rows = [x for x in rows if x.status == status_filter]
+
+    reverse = sort_order == "desc"
+    if sort_by == "essi":
+        rows.sort(key=lambda x: x.essi, reverse=reverse)
+    elif sort_by == "department":
+        rows.sort(key=lambda x: x.department.lower(), reverse=reverse)
+    elif sort_by == "status":
+        rows.sort(key=lambda x: x.status.lower(), reverse=reverse)
+    else:
+        rows.sort(key=lambda x: x.name.lower(), reverse=reverse)
+
+    total = len(rows)
+    items = rows[offset : offset + limit]
+    return EmployeeListPage(
+        items=items,
+        total=total,
+        limit=limit,
+        offset=offset,
+        has_more=(offset + limit) < total,
+    )
 
 
 @router.get("/{employee_id}/index", response_model=EmployeeIndexOut)

@@ -12,15 +12,26 @@ router = APIRouter(prefix="/recommendations", tags=["recommendations"])
 @router.get("", response_model=list[RecommendationOut])
 def list_recommendations(
     dept: int | None = None,
+    status: str | None = None,
+    priority: str | None = None,
+    q: str | None = None,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
     if user.role == UserRole.employee:
         raise HTTPException(status_code=403, detail="Forbidden")
-    q = db.query(Recommendation)
+    query = db.query(Recommendation)
     if dept is not None:
-        q = q.filter(Recommendation.department_id == dept)
-    rows = q.order_by(Recommendation.created_at.desc()).all()
+        query = query.filter(Recommendation.department_id == dept)
+    if status:
+        query = query.filter(Recommendation.status == status)
+    if priority:
+        query = query.filter(Recommendation.priority == priority)
+    if q:
+        query = query.filter(
+            Recommendation.title.contains(q) | Recommendation.text.contains(q)
+        )
+    rows = query.order_by(Recommendation.created_at.desc(), Recommendation.id.desc()).all()
     return [
         RecommendationOut(
             id=r.id,

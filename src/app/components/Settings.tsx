@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import { Settings as SettingsIcon, User, Shield, KeyRound, ScrollText } from "lucide-react";
-import { apiFetch, parseErrorMessage } from "@/api/client";
+import { apiFetch, downloadWithAuth, parseErrorMessage } from "@/api/client";
 import { useAuth } from "@/auth/AuthContext";
 
 type EmpOpt = { id: number; name: string; department: string };
@@ -117,10 +117,14 @@ function AdminAuditLog() {
   const [actionFilter, setActionFilter] = useState("");
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
 
   async function fetchPage(offset: number): Promise<AuditLogsPage | null> {
     const q = new URLSearchParams({ limit: "50", offset: String(offset) });
     if (actionFilter.trim()) q.set("action", actionFilter.trim());
+    if (dateFrom) q.set("date_from", new Date(dateFrom).toISOString());
+    if (dateTo) q.set("date_to", new Date(dateTo).toISOString());
     const res = await apiFetch(`/audit/logs?${q}`);
     if (!res.ok) {
       setErr(await parseErrorMessage(res));
@@ -192,6 +196,24 @@ function AdminAuditLog() {
             onChange={(e) => setActionFilter(e.target.value)}
           />
         </label>
+        <label className="text-sm text-gray-600 flex flex-col gap-1">
+          С
+          <input
+            type="date"
+            className="border rounded-xl px-3 py-2"
+            value={dateFrom}
+            onChange={(e) => setDateFrom(e.target.value)}
+          />
+        </label>
+        <label className="text-sm text-gray-600 flex flex-col gap-1">
+          По
+          <input
+            type="date"
+            className="border rounded-xl px-3 py-2"
+            value={dateTo}
+            onChange={(e) => setDateTo(e.target.value)}
+          />
+        </label>
         <button
           type="button"
           disabled={busy}
@@ -199,6 +221,18 @@ function AdminAuditLog() {
           className="px-4 py-2 rounded-xl border border-gray-300 font-medium hover:bg-gray-50 disabled:opacity-50"
         >
           {busy ? "Загрузка…" : "Обновить"}
+        </button>
+        <button
+          type="button"
+          className="px-4 py-2 rounded-xl border border-[#0052FF] text-[#0052FF] font-medium hover:bg-blue-50"
+          onClick={() =>
+            void downloadWithAuth(
+              `/audit/logs/export?action=${encodeURIComponent(actionFilter)}${dateFrom ? `&date_from=${encodeURIComponent(new Date(dateFrom).toISOString())}` : ""}${dateTo ? `&date_to=${encodeURIComponent(new Date(dateTo).toISOString())}` : ""}`,
+              "audit_logs.csv",
+            )
+          }
+        >
+          Экспорт CSV
         </button>
       </div>
       {err && <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl px-3 py-2">{err}</p>}
@@ -257,6 +291,19 @@ function AdminCreateUser() {
   const [employees, setEmployees] = useState<EmpOpt[]>([]);
   const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [users, setUsers] = useState<
+    { id: number; username: string; role: "employee" | "manager" | "admin"; employee_id: number | null }[]
+  >([]);
+  const [resetBusyId, setResetBusyId] = useState<number | null>(null);
+
+  async function loadUsers() {
+    const res = await apiFetch("/admin/users?limit=200&offset=0");
+    if (!res.ok) return;
+    const j = (await res.json()) as {
+      items: { id: number; username: string; role: "employee" | "manager" | "admin"; employee_id: number | null }[];
+    };
+    setUsers(j.items ?? []);
+  }
 
   useEffect(() => {
     void (async () => {
@@ -265,6 +312,7 @@ function AdminCreateUser() {
       const rows = (await res.json()) as { id: number; name: string; department: string }[];
       setEmployees(rows.map((r) => ({ id: r.id, name: r.name, department: r.department })));
     })();
+    void loadUsers();
   }, []);
 
   useEffect(() => {
@@ -294,8 +342,47 @@ function AdminCreateUser() {
       setUsername("");
       setPassword("");
       setEmployeeId("");
+      await loadUsers();
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function updateUserRole(
+    id: number,
+    nextRole: "employee" | "manager" | "admin",
+    existingEmployeeId: number | null,
+  ) {
+    const res = await apiFetch(`/admin/users/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        role: nextRole,
+        employee_id: nextRole === "employee" ? existingEmployeeId : null,
+      }),
+    });
+    if (!res.ok) {
+      setMsg(await parseErrorMessage(res));
+      return;
+    }
+    await loadUsers();
+  }
+
+  async function resetPassword(id: number) {
+    const p = window.prompt("Новый пароль (мин. 6 символов)");
+    if (!p || p.length < 6) return;
+    setResetBusyId(id);
+    try {
+      const res = await apiFetch(`/admin/users/${id}/reset-password`, {
+        method: "POST",
+        body: JSON.stringify({ new_password: p }),
+      });
+      if (!res.ok) {
+        setMsg(await parseErrorMessage(res));
+        return;
+      }
+      setMsg("Пароль пользователя обновлён");
+    } finally {
+      setResetBusyId(null);
     }
   }
 
@@ -372,6 +459,56 @@ function AdminCreateUser() {
         </button>
         {msg && <p className={`text-sm ${msgClass}`}>{msg}</p>}
       </form>
+      <div className="pt-4 border-t border-gray-100 space-y-2">
+        <h3 className="text-sm font-semibold text-gray-800">Пользователи</h3>
+        <div className="overflow-x-auto border border-gray-200 rounded-xl">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 border-b border-gray-200">
+              <tr>
+                <th className="px-3 py-2 text-left">Логин</th>
+                <th className="px-3 py-2 text-left">Роль</th>
+                <th className="px-3 py-2 text-left">employee_id</th>
+                <th className="px-3 py-2 text-left">Действия</th>
+              </tr>
+            </thead>
+            <tbody>
+              {users.map((u) => (
+                <tr key={u.id} className="border-b border-gray-100">
+                  <td className="px-3 py-2">{u.username}</td>
+                  <td className="px-3 py-2">
+                    <select
+                      className="border rounded-lg px-2 py-1"
+                      value={u.role}
+                      onChange={(e) =>
+                        void updateUserRole(
+                          u.id,
+                          e.target.value as "employee" | "manager" | "admin",
+                          u.employee_id,
+                        )
+                      }
+                    >
+                      <option value="employee">employee</option>
+                      <option value="manager">manager</option>
+                      <option value="admin">admin</option>
+                    </select>
+                  </td>
+                  <td className="px-3 py-2">{u.employee_id ?? "—"}</td>
+                  <td className="px-3 py-2">
+                    <button
+                      type="button"
+                      disabled={resetBusyId === u.id}
+                      onClick={() => void resetPassword(u.id)}
+                      className="px-2 py-1 rounded-lg border border-gray-300 text-xs"
+                    >
+                      {resetBusyId === u.id ? "..." : "Сброс пароля"}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
 }

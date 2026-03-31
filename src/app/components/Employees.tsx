@@ -79,6 +79,9 @@ export default function Employees() {
   const [searchQuery, setSearchQuery] = useState(() => searchParams.get("q") ?? "");
   const [selectedDepartment, setSelectedDepartment] = useState("Все");
   const [deptOptions, setDeptOptions] = useState<DeptOpt[]>([]);
+  const [totalEmployees, setTotalEmployees] = useState(0);
+  const [page, setPage] = useState(1);
+  const pageSize = 20;
   const [newName, setNewName] = useState("");
   const [newDeptId, setNewDeptId] = useState<number | "">("");
   const [newPosition, setNewPosition] = useState("");
@@ -93,13 +96,6 @@ export default function Employees() {
 
   useEffect(() => {
     void (async () => {
-      const res = await apiFetch("/employees");
-      if (res.ok) setEmployeesData(await res.json());
-    })();
-  }, []);
-
-  useEffect(() => {
-    void (async () => {
       const res = await apiFetch("/departments");
       if (res.ok) {
         const r = (await res.json()) as { id: number; name: string }[];
@@ -107,6 +103,27 @@ export default function Employees() {
       }
     })();
   }, []);
+
+  useEffect(() => {
+    const departmentId =
+      selectedDepartment === "Все"
+        ? null
+        : deptOptions.find((d) => d.name === selectedDepartment)?.id ?? null;
+    const offset = (page - 1) * pageSize;
+    const q = new URLSearchParams({
+      limit: String(pageSize),
+      offset: String(offset),
+    });
+    if (searchQuery.trim()) q.set("q", searchQuery.trim());
+    if (departmentId != null) q.set("department_id", String(departmentId));
+    void (async () => {
+      const res = await apiFetch(`/employees/page?${q}`);
+      if (!res.ok) return;
+      const data = (await res.json()) as { items: Emp[]; total: number };
+      setEmployeesData(data.items ?? []);
+      setTotalEmployees(data.total ?? 0);
+    })();
+  }, [searchQuery, selectedDepartment, page, deptOptions]);
 
   async function createEmployee(e: React.FormEvent) {
     e.preventDefault();
@@ -130,27 +147,23 @@ export default function Employees() {
       setNewName("");
       setNewPosition("");
       setNewEmail("");
-      const res2 = await apiFetch("/employees");
-      if (res2.ok) setEmployeesData(await res2.json());
+      const res2 = await apiFetch("/employees/page?limit=20&offset=0");
+      if (res2.ok) {
+        const pageData = (await res2.json()) as { items: Emp[]; total: number };
+        setEmployeesData(pageData.items ?? []);
+        setTotalEmployees(pageData.total ?? 0);
+        setPage(1);
+      }
     } finally {
       setCreateBusy(false);
     }
   }
 
-  const departments = useMemo(() => {
-    const s = new Set(employeesData.map((e) => e.department));
-    return ["Все", ...Array.from(s)];
-  }, [employeesData]);
-
-  const filteredEmployees = employeesData.filter((emp) => {
-    const matchesSearch =
-      emp.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (emp.email ?? "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (emp.position ?? "").toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesDepartment =
-      selectedDepartment === "Все" || emp.department === selectedDepartment;
-    return matchesSearch && matchesDepartment;
-  });
+  const departments = useMemo(
+    () => ["Все", ...deptOptions.map((d) => d.name)],
+    [deptOptions],
+  );
+  const filteredEmployees = employeesData;
 
   return (
     <div className="p-6">
@@ -227,6 +240,7 @@ export default function Employees() {
                   const v = e.target.value;
                   setSearchQuery(v);
                   setSearchParams(v.trim() ? { q: v.trim() } : {}, { replace: true });
+                  setPage(1);
                 }}
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0052FF] focus:border-transparent"
               />
@@ -236,7 +250,10 @@ export default function Employees() {
             <Filter size={18} className="text-gray-500" />
             <select
               value={selectedDepartment}
-              onChange={(e) => setSelectedDepartment(e.target.value)}
+              onChange={(e) => {
+                setSelectedDepartment(e.target.value);
+                setPage(1);
+              }}
               className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0052FF] focus:border-transparent bg-white"
             >
               {departments.map((dept) => (
@@ -301,6 +318,9 @@ export default function Employees() {
       )}
 
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div className="px-6 py-3 text-xs text-gray-500 border-b border-gray-100">
+          Показано {filteredEmployees.length} из {totalEmployees}
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
@@ -365,6 +385,27 @@ export default function Employees() {
               ))}
             </tbody>
           </table>
+        </div>
+        <div className="px-6 py-3 border-t border-gray-100 flex items-center justify-between text-sm">
+          <button
+            type="button"
+            disabled={page <= 1}
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            className="px-3 py-1.5 rounded-lg border border-gray-300 disabled:opacity-40"
+          >
+            Назад
+          </button>
+          <span className="text-gray-600">
+            Страница {page} из {Math.max(1, Math.ceil(totalEmployees / pageSize))}
+          </span>
+          <button
+            type="button"
+            disabled={page >= Math.ceil(totalEmployees / pageSize)}
+            onClick={() => setPage((p) => p + 1)}
+            className="px-3 py-1.5 rounded-lg border border-gray-300 disabled:opacity-40"
+          >
+            Вперёд
+          </button>
         </div>
       </div>
     </div>

@@ -20,16 +20,23 @@ export default function Recommendations() {
   const [items, setItems] = useState<Rec[]>([]);
   const [err, setErr] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [priorityFilter, setPriorityFilter] = useState("all");
+  const [search, setSearch] = useState("");
 
   const load = useCallback(async () => {
     setErr(null);
-    const res = await apiFetch("/recommendations");
+    const q = new URLSearchParams();
+    if (statusFilter !== "all") q.set("status", statusFilter);
+    if (priorityFilter !== "all") q.set("priority", priorityFilter);
+    if (search.trim()) q.set("q", search.trim());
+    const res = await apiFetch(`/recommendations${q.toString() ? `?${q}` : ""}`);
     if (!res.ok) {
       setErr(await parseErrorMessage(res));
       return;
     }
     setItems(await res.json());
-  }, []);
+  }, [statusFilter, priorityFilter, search]);
 
   useEffect(() => {
     void load();
@@ -76,6 +83,42 @@ export default function Recommendations() {
           <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Рекомендации</h1>
           <p className="text-gray-600 text-sm">Правила и ML; отметьте выполнение. Карточку можно открыть целиком.</p>
         </div>
+      </div>
+      <div className="bg-white rounded-xl border border-gray-200 p-4 flex flex-wrap gap-3 items-end">
+        <label className="text-sm text-gray-600">
+          Поиск
+          <input
+            className="mt-1 border rounded-xl px-3 py-2 w-64"
+            placeholder="Название или текст"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </label>
+        <label className="text-sm text-gray-600">
+          Статус
+          <select
+            className="mt-1 border rounded-xl px-3 py-2"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+          >
+            <option value="all">Все</option>
+            <option value="Новая">Новая</option>
+            <option value="Выполнено">Выполнено</option>
+          </select>
+        </label>
+        <label className="text-sm text-gray-600">
+          Приоритет
+          <select
+            className="mt-1 border rounded-xl px-3 py-2"
+            value={priorityFilter}
+            onChange={(e) => setPriorityFilter(e.target.value)}
+          >
+            <option value="all">Все</option>
+            <option value="high">high</option>
+            <option value="medium">medium</option>
+            <option value="low">low</option>
+          </select>
+        </label>
       </div>
       {err && (
         <div className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl px-4 py-3">

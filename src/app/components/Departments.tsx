@@ -12,14 +12,31 @@ type Row = {
 
 export default function Departments() {
   const [rows, setRows] = useState<Row[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [q, setQ] = useState("");
+  const [sortBy, setSortBy] = useState<"name" | "employee_count" | "avg_essi">("name");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+  const pageSize = 12;
   const [newName, setNewName] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
-    const res = await apiFetch("/departments");
-    if (res.ok) setRows(await res.json());
-  }, []);
+    const params = new URLSearchParams({
+      limit: String(pageSize),
+      offset: String((page - 1) * pageSize),
+      sort_by: sortBy,
+      sort_order: sortOrder,
+    });
+    if (q.trim()) params.set("q", q.trim());
+    const res = await apiFetch(`/departments/page?${params}`);
+    if (res.ok) {
+      const j = (await res.json()) as { items: Row[]; total: number };
+      setRows(j.items ?? []);
+      setTotal(j.total ?? 0);
+    }
+  }, [page, q, sortBy, sortOrder]);
 
   useEffect(() => {
     void load();
@@ -103,6 +120,50 @@ export default function Departments() {
         </button>
       </form>
 
+      <div className="bg-white rounded-xl border border-gray-200 p-4 flex flex-wrap gap-3 items-end">
+        <label className="text-sm text-gray-600">
+          Поиск
+          <input
+            className="mt-1 border rounded-xl px-3 py-2 w-56"
+            placeholder="Название отдела"
+            value={q}
+            onChange={(e) => {
+              setQ(e.target.value);
+              setPage(1);
+            }}
+          />
+        </label>
+        <label className="text-sm text-gray-600">
+          Сортировка
+          <select
+            className="mt-1 border rounded-xl px-3 py-2"
+            value={sortBy}
+            onChange={(e) => {
+              setSortBy(e.target.value as typeof sortBy);
+              setPage(1);
+            }}
+          >
+            <option value="name">Название</option>
+            <option value="employee_count">Число сотрудников</option>
+            <option value="avg_essi">Средний ESSI</option>
+          </select>
+        </label>
+        <label className="text-sm text-gray-600">
+          Порядок
+          <select
+            className="mt-1 border rounded-xl px-3 py-2"
+            value={sortOrder}
+            onChange={(e) => {
+              setSortOrder(e.target.value as typeof sortOrder);
+              setPage(1);
+            }}
+          >
+            <option value="asc">По возрастанию</option>
+            <option value="desc">По убыванию</option>
+          </select>
+        </label>
+      </div>
+
       {rows.length === 0 && (
         <div className="rounded-2xl border border-dashed border-gray-200 bg-white p-8 text-center text-gray-500">
           Нет отделов в базе. Создайте отдел выше или выполните seed.
@@ -145,6 +206,27 @@ export default function Departments() {
             </div>
           </div>
         ))}
+      </div>
+      <div className="bg-white rounded-xl border border-gray-200 px-4 py-3 flex items-center justify-between text-sm">
+        <button
+          type="button"
+          disabled={page <= 1}
+          onClick={() => setPage((p) => Math.max(1, p - 1))}
+          className="px-3 py-1.5 rounded-lg border border-gray-300 disabled:opacity-40"
+        >
+          Назад
+        </button>
+        <span className="text-gray-600">
+          Страница {page} из {Math.max(1, Math.ceil(total / pageSize))} · всего {total}
+        </span>
+        <button
+          type="button"
+          disabled={page >= Math.ceil(total / pageSize)}
+          onClick={() => setPage((p) => p + 1)}
+          className="px-3 py-1.5 rounded-lg border border-gray-300 disabled:opacity-40"
+        >
+          Вперёд
+        </button>
       </div>
     </div>
   );

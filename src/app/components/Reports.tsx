@@ -10,10 +10,14 @@ import {
 type JobRow = { id: number; status: string; detail: string | null };
 type ExportRow = {
   id: number;
+  kind?: string;
   status: string;
   download_url: string | null;
   detail: string | null;
+  created_at?: string;
 };
+type JobPage = { items: JobRow[] };
+type ExportPage = { items: ExportRow[] };
 
 async function pollJob(jobId: number): Promise<JobRow> {
   for (let i = 0; i < 120; i++) {
@@ -61,6 +65,23 @@ export default function Reports() {
   const [econErr, setEconErr] = useState<string | null>(null);
   const [econDraftBusy, setEconDraftBusy] = useState(false);
   const [econDraftMsg, setEconDraftMsg] = useState<string | null>(null);
+  const [jobHistory, setJobHistory] = useState<JobRow[]>([]);
+  const [exportHistory, setExportHistory] = useState<ExportRow[]>([]);
+
+  async function loadHistory() {
+    const [jobsRes, exportsRes] = await Promise.all([
+      apiFetch("/jobs?kind=survey_import&limit=10&offset=0"),
+      apiFetch("/reports/exports?limit=10&offset=0"),
+    ]);
+    if (jobsRes.ok) {
+      const j = (await jobsRes.json()) as JobPage;
+      setJobHistory(j.items ?? []);
+    }
+    if (exportsRes.ok) {
+      const e = (await exportsRes.json()) as ExportPage;
+      setExportHistory(e.items ?? []);
+    }
+  }
 
   useEffect(() => {
     void (async () => {
@@ -77,6 +98,7 @@ export default function Reports() {
           typeof j.draft_departed_count === "number" ? j.draft_departed_count : e.departed_count,
       }));
     })();
+    void loadHistory();
   }, []);
 
   async function onUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -104,6 +126,7 @@ export default function Reports() {
       } else {
         setImportStatus(`Готово: ${done.detail ?? "импорт завершён"}`);
       }
+      await loadHistory();
     } catch (err) {
       setImportStatus(err instanceof Error ? err.message : "Ошибка");
     } finally {
@@ -134,6 +157,7 @@ export default function Reports() {
       setReadyReportId(j.id);
       setReadyReportExt(kind === "summary_excel" ? "xlsx" : "pdf");
       setReportStatus("Готово к скачиванию");
+      await loadHistory();
     } catch (err) {
       setReportStatus(err instanceof Error ? err.message : "Ошибка");
     } finally {
@@ -149,6 +173,32 @@ export default function Reports() {
       await downloadWithAuth(`/reports/${readyReportId}/download`, name);
     } catch {
       setReportStatus("Не удалось скачать (файл ещё не готов?)");
+    }
+  }
+
+  async function retryExport(reportId: number) {
+    setReportBusy(true);
+    setReportStatus(`Повторный запуск отчёта #${reportId}…`);
+    try {
+      const res = await apiFetch(`/reports/${reportId}/retry`, { method: "POST" });
+      if (res.status !== 202) {
+        setReportStatus(await parseErrorMessage(res));
+        return;
+      }
+      const j = (await res.json()) as { id: number; kind: string };
+      const done = await pollExport(j.id);
+      if (done.status === "failed") {
+        setReportStatus(`Ошибка: ${done.detail ?? "сбой"}`);
+      } else {
+        setReadyReportId(j.id);
+        setReadyReportExt((j.kind === "summary_excel" || j.kind === "excel") ? "xlsx" : "pdf");
+        setReportStatus("Готово к скачиванию");
+      }
+      await loadHistory();
+    } catch (err) {
+      setReportStatus(err instanceof Error ? err.message : "Ошибка");
+    } finally {
+      setReportBusy(false);
     }
   }
 
@@ -396,6 +446,64 @@ export default function Reports() {
             <div className="font-semibold">Итого: {econResult.loss_total}</div>
           </div>
         )}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="bg-white rounded-2xl border border-gray-200 p-4 shadow-sm">
+          <h3 className="font-semibold text-gray-900 mb-3">История импортов</h3>
+          <div className="space-y-2">
+            {jobHistory.length === 0 && <p className="text-sm text-gray-500">Нет задач импорта.</p>}
+            {jobHistory.map((job) => (
+              <div key={job.id} className="rounded-lg border border-gray-200 px-3 py-2 text-sm">
+                <div className="font-medium">Импорт #{job.id}</div>
+                <div className="text-xs text-gray-500">
+                  Статус: {job.status} {job.detail ? `· ${job.detail}` : ""}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="bg-white rounded-2xl border border-gray-200 p-4 shadow-sm">
+          <h3 className="font-semibold text-gray-900 mb-3">История экспортов</h3>
+          <div className="space-y-2">
+            {exportHistory.length === 0 && <p className="text-sm text-gray-500">Нет отчётов.</p>}
+            {exportHistory.map((exp) => (
+              <div key={exp.id} className="rounded-lg border border-gray-200 px-3 py-2 text-sm">
+                <div className="font-medium">
+                  Отчёт #{exp.id} ({exp.kind === "summary_excel" || exp.kind === "excel" ? "Excel" : "PDF"})
+                </div>
+                <div className="text-xs text-gray-500">
+                  Статус: {exp.status} {exp.detail ? `· ${exp.detail}` : ""}
+                </div>
+                <div className="mt-2 flex gap-2">
+                  {exp.download_url && (
+                    <button
+                      type="button"
+                      className="px-2 py-1 rounded-lg text-xs bg-green-600 text-white"
+                      onClick={() =>
+                        void downloadWithAuth(
+                          exp.download_url!.replace("/api", ""),
+                          `report_${exp.id}.${exp.kind === "summary_excel" || exp.kind === "excel" ? "xlsx" : "pdf"}`,
+                        )
+                      }
+                    >
+                      Скачать
+                    </button>
+                  )}
+                  {exp.status === "failed" && (
+                    <button
+                      type="button"
+                      className="px-2 py-1 rounded-lg text-xs border border-[#0052FF] text-[#0052FF]"
+                      onClick={() => void retryExport(exp.id)}
+                    >
+                      Retry
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );

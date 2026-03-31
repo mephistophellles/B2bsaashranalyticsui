@@ -67,11 +67,12 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const [data, setData] = useState<DashboardPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [months, setMonths] = useState(6);
 
   useEffect(() => {
     void (async () => {
       setError(null);
-      const res = await apiFetch("/reports/dashboard");
+      const res = await apiFetch(`/reports/dashboard?months=${months}`);
       if (!res.ok) {
         setError("Не удалось загрузить дашборд");
         setData(null);
@@ -79,7 +80,7 @@ export default function Dashboard() {
       }
       setData(await res.json());
     })();
-  }, []);
+  }, [months]);
 
   if (error) {
     return <div className="p-6 text-red-600">{error}</div>;
@@ -105,6 +106,22 @@ export default function Dashboard() {
 
   return (
     <div className="p-6 space-y-6">
+      <div className="flex flex-wrap gap-2 items-center justify-between">
+        <h1 className="text-2xl font-bold text-gray-900">Главная</h1>
+        <label className="text-sm text-gray-600 flex items-center gap-2">
+          Период ESSI
+          <select
+            className="border rounded-lg px-2 py-1 bg-white"
+            value={months}
+            onChange={(e) => setMonths(Number(e.target.value))}
+          >
+            <option value={3}>3 мес.</option>
+            <option value={6}>6 мес.</option>
+            <option value={12}>12 мес.</option>
+            <option value={24}>24 мес.</option>
+          </select>
+        </label>
+      </div>
       {sparseData && (
         <div className="rounded-2xl border border-amber-200 bg-amber-50/90 px-4 py-3 text-sm text-amber-950 shadow-sm">
           <strong className="font-semibold">Мало данных.</strong> Выполните{" "}
@@ -115,7 +132,15 @@ export default function Dashboard() {
         </div>
       )}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-shadow">
+        <div
+          role="button"
+          tabIndex={0}
+          className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-shadow cursor-pointer"
+          onClick={() => navigate("/reports")}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") navigate("/reports");
+          }}
+        >
           <div className="flex items-start justify-between mb-3">
             <div>
               <div className="text-sm text-gray-600 mb-1">Индекс ESSI</div>
@@ -154,7 +179,15 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-shadow">
+        <div
+          role="button"
+          tabIndex={0}
+          className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-shadow cursor-pointer"
+          onClick={() => navigate("/employees")}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") navigate("/employees");
+          }}
+        >
           <div className="flex items-start justify-between mb-3">
             <div>
               <div className="text-sm text-gray-600 mb-1">Вовлеченность</div>
@@ -199,7 +232,15 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-shadow">
+        <div
+          role="button"
+          tabIndex={0}
+          className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-shadow cursor-pointer"
+          onClick={() => navigate("/employees")}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") navigate("/employees");
+          }}
+        >
           <div className="flex items-start justify-between mb-3">
             <div>
               <div className="text-sm text-gray-600 mb-1">Уровень риска</div>
@@ -232,8 +273,14 @@ export default function Dashboard() {
         </div>
 
         <div
-          className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-shadow"
+          role="button"
+          tabIndex={0}
+          className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-shadow cursor-pointer"
           title="Модельный показатель: производный от динамики ESSI (к среднему по месяцам добавлено +10 п.п., макс. 100%). Отдельный опрос продуктивности не проводится."
+          onClick={() => navigate("/reports")}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") navigate("/reports");
+          }}
         >
           <div className="flex items-start justify-between mb-3">
             <div>
@@ -283,58 +330,66 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white rounded-xl border border-gray-200 p-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Динамика ESSI</h2>
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={essiData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-              <XAxis dataKey="month" stroke="#6B7280" fontSize={12} />
-              <YAxis stroke="#6B7280" fontSize={12} />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: "white",
-                  border: "1px solid #E5E7EB",
-                  borderRadius: "8px",
-                }}
-              />
-              <Line
-                type="monotone"
-                dataKey="value"
-                stroke="#0052FF"
-                strokeWidth={3}
-                dot={{ fill: "#0052FF", r: 4 }}
-                activeDot={{ r: 6 }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
+          {essiData.length === 0 ? (
+            <p className="text-sm text-gray-500">Нет данных для выбранного периода.</p>
+          ) : (
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={essiData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                <XAxis dataKey="month" stroke="#6B7280" fontSize={12} />
+                <YAxis stroke="#6B7280" fontSize={12} />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "white",
+                    border: "1px solid #E5E7EB",
+                    borderRadius: "8px",
+                  }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="value"
+                  stroke="#0052FF"
+                  strokeWidth={3}
+                  dot={{ fill: "#0052FF", r: 4 }}
+                  activeDot={{ r: 6 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          )}
         </div>
 
         <div className="bg-white rounded-xl border border-gray-200 p-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Сравнение отделов</h2>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={departmentData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-              <XAxis dataKey="department" stroke="#6B7280" fontSize={12} />
-              <YAxis stroke="#6B7280" fontSize={12} />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: "white",
-                  border: "1px solid #E5E7EB",
-                  borderRadius: "8px",
-                }}
-              />
-              <Bar
-                dataKey="essi"
-                fill="#0052FF"
-                radius={[8, 8, 0, 0]}
-                cursor="pointer"
-                onClick={(barData) => {
-                  const departmentId = barData?.payload?.departmentId;
-                  if (typeof departmentId === "number") {
-                    navigate(`/departments/${departmentId}`);
-                  }
-                }}
-              />
-            </BarChart>
-          </ResponsiveContainer>
+          {departmentData.length === 0 ? (
+            <p className="text-sm text-gray-500">Нет данных по отделам.</p>
+          ) : (
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={departmentData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                <XAxis dataKey="department" stroke="#6B7280" fontSize={12} />
+                <YAxis stroke="#6B7280" fontSize={12} />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "white",
+                    border: "1px solid #E5E7EB",
+                    borderRadius: "8px",
+                  }}
+                />
+                <Bar
+                  dataKey="essi"
+                  fill="#0052FF"
+                  radius={[8, 8, 0, 0]}
+                  cursor="pointer"
+                  onClick={(barData) => {
+                    const departmentId = barData?.payload?.departmentId;
+                    if (typeof departmentId === "number") {
+                      navigate(`/departments/${departmentId}`);
+                    }
+                  }}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
         </div>
       </div>
 
@@ -353,6 +408,13 @@ export default function Dashboard() {
                 </tr>
               </thead>
               <tbody>
+                {recentEmployees.length === 0 && (
+                  <tr>
+                    <td className="py-5 px-4 text-sm text-gray-500" colSpan={5}>
+                      Нет последних обновлений.
+                    </td>
+                  </tr>
+                )}
                 {recentEmployees.map((employee) => (
                   <tr
                     key={employee.id}
@@ -404,6 +466,9 @@ export default function Dashboard() {
         <div className="bg-white rounded-xl border border-gray-200 p-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Рекомендации ИИ</h2>
           <div className="space-y-3">
+            {recommendations.length === 0 && (
+              <p className="text-sm text-gray-500">Рекомендаций пока нет.</p>
+            )}
             {recommendations.map((rec) => (
               <Link
                 key={rec.id}
