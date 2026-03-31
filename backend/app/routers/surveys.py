@@ -25,9 +25,9 @@ from app.schemas import (
     SurveyTemplateResponse,
 )
 from app.services.campaign_survey import CampaignSurveyValidationError, validate_campaign_survey_row
-from app.services.essi import recompute_indices
+from app.services.essi import recompute_indices, validate_block_sum
 from app.services.recommendations_engine import generate_rule_based, maybe_train_lightgbm_and_log
-from app.tasks import process_survey_import
+from app.tasks import parse_and_validate_survey_import_file, process_survey_import
 
 router = APIRouter(prefix="/surveys", tags=["surveys"])
 
@@ -139,13 +139,15 @@ def submit_survey(
             enforce_duplicate_check=(user.role == UserRole.employee),
         )
     except CampaignSurveyValidationError as err:
-        raise HTTPException(status_code=400, detail=str(err)) from err
+        raise HTTPException(status_code=422, detail=str(err)) from err
     totals = [0.0] * 5
     for block in body.blocks:
         bi = block.block_index - 1
-        if bi < 0 or bi > 4:
-            raise HTTPException(status_code=400, detail="Invalid block_index")
         totals[bi] += sum(block.scores)
+    try:
+        totals = [validate_block_sum(total, block_index=idx + 1) for idx, total in enumerate(totals)]
+    except ValueError as err:
+        raise HTTPException(status_code=422, detail=str(err)) from err
     db.add(
         Survey(
             employee_id=eid,
@@ -178,15 +180,23 @@ async def upload_surveys(
     if campaign_id is not None:
         camp = db.query(SurveyCampaign).filter(SurveyCampaign.id == campaign_id).first()
         if not camp or camp.status != "active":
-            raise HTTPException(status_code=400, detail="Кампания не найдена или закрыта")
+            raise HTTPException(status_code=422, detail="Кампания не найдена или закрыта")
+    ext = os.path.splitext(file.filename or "")[1] or ".csv"
+    tmp = os.path.join(tempfile.gettempdir(), f"potential_upload_{uuid.uuid4().hex}{ext}")
+    with open(tmp, "wb") as f:
+        shutil.copyfileobj(file.file, f)
+    try:
+        parse_and_validate_survey_import_file(tmp, db=db, campaign_id=campaign_id)
+    except (ValueError, CampaignSurveyValidationError) as err:
+        try:
+            os.remove(tmp)
+        except OSError:
+            pass
+        raise HTTPException(status_code=422, detail=str(err)) from err
     job = Job(kind="survey_import", status=JobStatus.pending)
     db.add(job)
     db.commit()
     db.refresh(job)
-    ext = os.path.splitext(file.filename or "")[1] or ".csv"
-    tmp = os.path.join(tempfile.gettempdir(), f"potential_upload_{job.id}_{uuid.uuid4().hex}{ext}")
-    with open(tmp, "wb") as f:
-        shutil.copyfileobj(file.file, f)
     audit(db, user, "survey_upload", "job", {"job_id": job.id, "campaign_id": campaign_id})
     background_tasks.add_task(process_survey_import, job.id, tmp, user.id, campaign_id)
     return JobOut(

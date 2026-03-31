@@ -1,9 +1,10 @@
 from collections import defaultdict
 from sqlalchemy.orm import Session
 
+from app.data.survey_methodology import METHODOLOGY_BLOCK_TITLES
 from app.models import Department, Employee, IndexRecord, Recommendation, Survey, User
 from app.privacy import mask_display_name
-from app.services.essi import block_scores_from_survey, essi_from_blocks, organization_avg_essi
+from app.services.essi import block_percentage, block_scores_from_survey, essi_from_blocks, organization_avg_essi
 
 
 MONTHS_RU = {
@@ -100,6 +101,34 @@ def organization_risk_level(at_risk_total: int, indexed: int) -> str:
     return "Средний"
 
 
+def organization_block_percentages(db: Session) -> list[dict]:
+    surveys = latest_survey_per_employee_surveys(db)
+    if not surveys:
+        return []
+    totals = [0.0] * 5
+    for survey in surveys:
+        for idx, score in enumerate(block_scores_from_survey(survey)):
+            totals[idx] += block_percentage(score)
+    count = len(surveys)
+    return [
+        {
+            "block_index": idx + 1,
+            "title": METHODOLOGY_BLOCK_TITLES[idx + 1],
+            "value": round(totals[idx] / count, 1),
+        }
+        for idx in range(5)
+    ]
+
+
+def latest_survey_per_employee_surveys(db: Session) -> list[Survey]:
+    latest: dict[int, Survey] = {}
+    surveys = db.query(Survey).order_by(Survey.survey_date.desc(), Survey.id.desc()).all()
+    for survey in surveys:
+        if survey.employee_id not in latest:
+            latest[survey.employee_id] = survey
+    return list(latest.values())
+
+
 def build_dashboard(
     db: Session,
     viewer: User | None = None,
@@ -108,6 +137,7 @@ def build_dashboard(
 ) -> dict:
     org = organization_avg_essi(db) or 0.0
     series = monthly_org_essi_series(db, limit=max(1, essi_months))
+    block_pcts = organization_block_percentages(db)
     prev = series[-2]["value"] if len(series) >= 2 else (series[0]["value"] if series else org)
     curr = series[-1]["value"] if series else org
     essi_delta = round(((curr - prev) / prev * 100) if prev else 0.0, 1)
@@ -201,6 +231,7 @@ def build_dashboard(
         "productivity_pct": prod_curr,
         "productivity_delta_pct": productivity_delta,
         "essi_series": series if series else [{"id": "m0", "month": "—", "value": round(org, 1)}],
+        "block_percentages": block_pcts,
         "department_bars": dept_bars,
         "recent_employees": recent,
         "recommendations_preview": rec_preview,

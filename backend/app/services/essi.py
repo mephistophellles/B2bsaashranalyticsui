@@ -1,9 +1,12 @@
-"""ESSI / ИСУР: сумма score_block1..5 (суммы баллов по блокам) / 125 × 100 (методика, 5×5 Лайкерт)."""
+"""ESSI / ИСУР: сумма score_block1..5 (суммы баллов по блокам) / 125 × 100."""
 
 from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.models import Department, Employee, IndexRecord, Survey
+
+MIN_BLOCK_SUM = 5.0
+MAX_BLOCK_SUM = 25.0
 
 
 def block_scores_from_survey(s: Survey) -> list[float]:
@@ -16,13 +19,31 @@ def block_scores_from_survey(s: Survey) -> list[float]:
     ]
 
 
+def validate_block_sum(value: float, *, block_index: int | None = None) -> float:
+    if value < MIN_BLOCK_SUM or value > MAX_BLOCK_SUM:
+        label = f"Блок {block_index}" if block_index is not None else "Значение блока"
+        raise ValueError(f"{label}: сумма ответов должна быть в диапазоне 5..25")
+    return float(value)
+
+
+def block_percentage(value: float) -> float:
+    validated = validate_block_sum(value)
+    return round(validated / MAX_BLOCK_SUM * 100.0, 2)
+
+
+def block_percentages(block_scores: list[float]) -> list[float]:
+    return [block_percentage(score) for score in block_scores]
+
+
 def essi_from_blocks(block_scores: list[float]) -> float:
+    for idx, score in enumerate(block_scores, start=1):
+        validate_block_sum(score, block_index=idx)
     total = sum(block_scores)
     return round(total / settings.max_essi_points * 100.0, 2)
 
 
 def block_scores_for_target_essi(target: float) -> list[float]:
-    """Пять сумм по блокам (каждая 5–25), в сумме дают целевой ИСУР 0–100 на шкале методики."""
+    """Пять сумм по блокам (каждая 5–25) для заданного процента от максимума по методике."""
     t = max(0.0, min(100.0, target))
     total_points = t / 100.0 * settings.max_essi_points
     base = total_points / 5.0

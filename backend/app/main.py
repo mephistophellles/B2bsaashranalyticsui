@@ -5,9 +5,11 @@ import uuid
 import warnings
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from starlette.middleware.base import BaseHTTPMiddleware
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from prometheus_fastapi_instrumentator import Instrumentator
 
 from app.bootstrap import ensure_local_demo_accounts, ensure_organization_settings_row
@@ -103,6 +105,16 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
 
 
 app.add_middleware(RequestContextMiddleware)
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(_: Request, exc: RequestValidationError):
+    messages: list[str] = []
+    for err in exc.errors():
+        loc = ".".join(str(part) for part in err.get("loc", []) if part != "body")
+        msg = str(err.get("msg", "Некорректный запрос"))
+        messages.append(f"{loc}: {msg}" if loc else msg)
+    return JSONResponse(status_code=422, content={"detail": "; ".join(messages)})
 
 origins = [o.strip() for o in settings.cors_origins.split(",") if o.strip()]
 app.add_middleware(

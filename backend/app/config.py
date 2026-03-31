@@ -30,7 +30,7 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379/0"
 
     mlflow_tracking_uri: str = "file:./mlruns"
-    # ИСУР по методике: сумма 25 ответов (5 блоков × 5), макс. 125 баллов → индекс 0–100.
+    # ИСУР по методике: сумма 25 ответов (5 блоков × 5), макс. 125 баллов → процент от максимума.
     max_essi_points: float = 125.0
     num_survey_blocks: int = 5
 
