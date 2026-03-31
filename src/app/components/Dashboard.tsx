@@ -54,6 +54,15 @@ type DashboardPayload = {
   }[];
 };
 
+function parseDepartmentId(rawId: string): number | null {
+  const numeric = Number(rawId);
+  if (Number.isInteger(numeric) && numeric > 0) return numeric;
+  const match = rawId.match(/(\d+)$/);
+  if (!match) return null;
+  const parsed = Number(match[1]);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+}
+
 export default function Dashboard() {
   const navigate = useNavigate();
   const [data, setData] = useState<DashboardPayload | null>(null);
@@ -84,7 +93,11 @@ export default function Dashboard() {
   }
 
   const essiData = data.essi_series;
-  const departmentData = data.department_bars;
+  const departmentData = data.department_bars
+    .map((item) => ({
+      ...item,
+      departmentId: parseDepartmentId(item.id),
+    }));
   const recentEmployees = data.recent_employees;
   const recommendations = data.recommendations_preview;
   const sparseData =
@@ -308,7 +321,18 @@ export default function Dashboard() {
                   borderRadius: "8px",
                 }}
               />
-              <Bar dataKey="essi" fill="#0052FF" radius={[8, 8, 0, 0]} />
+              <Bar
+                dataKey="essi"
+                fill="#0052FF"
+                radius={[8, 8, 0, 0]}
+                cursor="pointer"
+                onClick={(barData) => {
+                  const departmentId = barData?.payload?.departmentId;
+                  if (typeof departmentId === "number") {
+                    navigate(`/departments/${departmentId}`);
+                  }
+                }}
+              />
             </BarChart>
           </ResponsiveContainer>
         </div>
