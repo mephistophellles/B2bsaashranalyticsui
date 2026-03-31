@@ -34,6 +34,20 @@ type Detail = {
 };
 
 type Dept = { id: number; name: string };
+type BlockMetric = {
+  block_index: number;
+  title: string;
+  value: number;
+  interpretation: string;
+  action_hint: string;
+};
+type Recommendation = {
+  id: number;
+  title: string;
+  description: string;
+  priority: string;
+  status: string;
+};
 
 export default function EmployeeDetail() {
   const { id } = useParams<{ id: string }>();
@@ -49,6 +63,8 @@ export default function EmployeeDetail() {
   const [msg, setMsg] = useState<string | null>(null);
   const [deleteErr, setDeleteErr] = useState<string | null>(null);
   const [expandedSurveyId, setExpandedSurveyId] = useState<number | null>(null);
+  const [blocks, setBlocks] = useState<BlockMetric[]>([]);
+  const [recommendedActions, setRecommendedActions] = useState<Recommendation[]>([]);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -69,6 +85,20 @@ export default function EmployeeDetail() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (!id) return;
+    void (async () => {
+      const res = await apiFetch(`/employees/${id}/breakdown`);
+      if (!res.ok) return;
+      const j = (await res.json()) as {
+        blocks: BlockMetric[];
+        recommendations: Recommendation[];
+      };
+      setBlocks(j.blocks ?? []);
+      setRecommendedActions(j.recommendations ?? []);
+    })();
+  }, [id]);
 
   useEffect(() => {
     void (async () => {
@@ -199,6 +229,47 @@ export default function EmployeeDetail() {
           <div className="text-xs text-gray-500">Продуктивность</div>
           <div className="text-lg font-semibold">{data.productivity}%</div>
         </div>
+      </div>
+
+      <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
+        <h2 className="text-lg font-semibold mb-3">Отклонения по 5 блокам</h2>
+        {blocks.length === 0 ? (
+          <p className="text-sm text-gray-500">Нет данных по блокам.</p>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {blocks.map((b) => (
+              <div
+                key={b.block_index}
+                className="rounded-xl border border-gray-200 px-3 py-3"
+                title={b.action_hint}
+              >
+                <div className="text-xs text-gray-500">Блок {b.block_index}</div>
+                <div className="font-medium text-gray-900">{b.title}</div>
+                <div className="text-lg font-semibold text-[#0052FF]">{b.value.toFixed(1)}</div>
+                <div className="text-xs text-gray-500">{b.interpretation}</div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
+        <h2 className="text-lg font-semibold mb-3">Рекомендации по действиям</h2>
+        {recommendedActions.length === 0 ? (
+          <p className="text-sm text-gray-500">Рекомендаций пока нет.</p>
+        ) : (
+          <div className="space-y-3">
+            {recommendedActions.map((r) => (
+              <div key={r.id} className="rounded-xl border border-gray-200 px-3 py-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="font-medium text-gray-900">{r.title}</div>
+                  <span className="text-xs text-gray-500">{r.priority}</span>
+                </div>
+                <p className="text-sm text-gray-600 mt-1">{r.description}</p>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {data.redacted ? (

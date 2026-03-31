@@ -18,6 +18,15 @@ type ExportRow = {
 };
 type JobPage = { items: JobRow[] };
 type ExportPage = { items: ExportRow[] };
+type ManagementEvent = {
+  id: number;
+  event_date: string;
+  event_type: string;
+  title: string;
+  description: string | null;
+  level: "organization" | "department";
+  department_id: number | null;
+};
 
 async function pollJob(jobId: number): Promise<JobRow> {
   for (let i = 0; i < 120; i++) {
@@ -67,6 +76,16 @@ export default function Reports() {
   const [econDraftMsg, setEconDraftMsg] = useState<string | null>(null);
   const [jobHistory, setJobHistory] = useState<JobRow[]>([]);
   const [exportHistory, setExportHistory] = useState<ExportRow[]>([]);
+  const [events, setEvents] = useState<ManagementEvent[]>([]);
+  const [eventBusy, setEventBusy] = useState(false);
+  const [eventForm, setEventForm] = useState({
+    event_date: new Date().toISOString().slice(0, 10),
+    event_type: "training",
+    title: "",
+    description: "",
+    level: "organization" as "organization" | "department",
+    department_id: "",
+  });
 
   async function loadHistory() {
     const [jobsRes, exportsRes] = await Promise.all([
@@ -80,6 +99,11 @@ export default function Reports() {
     if (exportsRes.ok) {
       const e = (await exportsRes.json()) as ExportPage;
       setExportHistory(e.items ?? []);
+    }
+    const eventsRes = await apiFetch("/reports/events?months=12");
+    if (eventsRes.ok) {
+      const rows = (await eventsRes.json()) as ManagementEvent[];
+      setEvents(rows);
     }
   }
 
@@ -255,6 +279,35 @@ export default function Reports() {
     }
   }
 
+  async function createEvent(e: React.FormEvent) {
+    e.preventDefault();
+    setEventBusy(true);
+    try {
+      const body: Record<string, unknown> = {
+        event_date: eventForm.event_date,
+        event_type: eventForm.event_type,
+        title: eventForm.title,
+        description: eventForm.description || null,
+        level: eventForm.level,
+      };
+      if (eventForm.level === "department" && eventForm.department_id) {
+        body.department_id = Number(eventForm.department_id);
+      }
+      const res = await apiFetch("/reports/events", {
+        method: "POST",
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        setReportStatus(await parseErrorMessage(res));
+        return;
+      }
+      setEventForm((s) => ({ ...s, title: "", description: "", department_id: "" }));
+      await loadHistory();
+    } finally {
+      setEventBusy(false);
+    }
+  }
+
   return (
     <div className="p-6 space-y-6">
       <div>
@@ -351,6 +404,13 @@ export default function Reports() {
                 Скачать .{readyReportExt}
               </button>
             )}
+            <button
+              type="button"
+              onClick={() => void downloadWithAuth("/reports/demo-template", "demo_hr_case_template.xlsx")}
+              className="px-3 py-1.5 text-sm rounded-lg border border-emerald-600 text-emerald-700 font-medium hover:bg-emerald-50"
+            >
+              Демо-кейс Excel
+            </button>
           </div>
           {reportStatus && (
             <p className="text-xs text-gray-700">{reportBusy ? "Подождите… " : ""}{reportStatus}</p>
@@ -446,6 +506,101 @@ export default function Reports() {
             <div className="font-semibold">Итого: {econResult.loss_total}</div>
           </div>
         )}
+      </div>
+
+      <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm space-y-4">
+        <h2 className="text-lg font-semibold">Управленческие события</h2>
+        <p className="text-sm text-gray-600">
+          Отмечайте действия (обучение, смена KPI и т.д.), чтобы на графике динамики видеть связь с изменением ESSI.
+        </p>
+        <form onSubmit={(e) => void createEvent(e)} className="grid md:grid-cols-6 gap-3 items-end">
+          <label className="text-sm md:col-span-1">
+            Дата
+            <input
+              type="date"
+              className="mt-1 w-full border rounded-xl px-2 py-2"
+              value={eventForm.event_date}
+              onChange={(ev) => setEventForm({ ...eventForm, event_date: ev.target.value })}
+              required
+            />
+          </label>
+          <label className="text-sm md:col-span-1">
+            Тип
+            <select
+              className="mt-1 w-full border rounded-xl px-2 py-2"
+              value={eventForm.event_type}
+              onChange={(ev) => setEventForm({ ...eventForm, event_type: ev.target.value })}
+            >
+              <option value="training">Обучение</option>
+              <option value="kpi_change">Изменение KPI</option>
+              <option value="process_change">Изменение процесса</option>
+              <option value="other">Другое</option>
+            </select>
+          </label>
+          <label className="text-sm md:col-span-2">
+            Заголовок
+            <input
+              className="mt-1 w-full border rounded-xl px-2 py-2"
+              value={eventForm.title}
+              onChange={(ev) => setEventForm({ ...eventForm, title: ev.target.value })}
+              required
+            />
+          </label>
+          <label className="text-sm md:col-span-1">
+            Уровень
+            <select
+              className="mt-1 w-full border rounded-xl px-2 py-2"
+              value={eventForm.level}
+              onChange={(ev) =>
+                setEventForm({ ...eventForm, level: ev.target.value as "organization" | "department" })
+              }
+            >
+              <option value="organization">Организация</option>
+              <option value="department">Отдел</option>
+            </select>
+          </label>
+          {eventForm.level === "department" && (
+            <label className="text-sm md:col-span-1">
+              ID отдела
+              <input
+                type="number"
+                className="mt-1 w-full border rounded-xl px-2 py-2"
+                value={eventForm.department_id}
+                onChange={(ev) => setEventForm({ ...eventForm, department_id: ev.target.value })}
+                required
+              />
+            </label>
+          )}
+          <button
+            type="submit"
+            disabled={eventBusy}
+            className="px-4 py-2 rounded-xl bg-[#0052FF] text-white font-medium disabled:opacity-50"
+          >
+            {eventBusy ? "..." : "Добавить"}
+          </button>
+          <label className="text-sm md:col-span-6">
+            Описание
+            <input
+              className="mt-1 w-full border rounded-xl px-2 py-2"
+              value={eventForm.description}
+              onChange={(ev) => setEventForm({ ...eventForm, description: ev.target.value })}
+              placeholder="Что сделали и зачем"
+            />
+          </label>
+        </form>
+        <div className="space-y-2">
+          {events.length === 0 ? (
+            <p className="text-sm text-gray-500">События не добавлены.</p>
+          ) : (
+            events.slice(0, 10).map((ev) => (
+              <div key={ev.id} className="rounded-xl border border-gray-200 px-3 py-2">
+                <div className="text-sm font-medium text-gray-900">{ev.event_date} · {ev.title}</div>
+                <div className="text-xs text-gray-500">{ev.event_type} · {ev.level}</div>
+                {ev.description && <div className="text-xs text-gray-600 mt-1">{ev.description}</div>}
+              </div>
+            ))
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

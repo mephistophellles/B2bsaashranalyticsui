@@ -10,12 +10,21 @@ type DepartmentEmployee = {
   essi: number;
   position: string | null;
 };
+type BlockMetric = {
+  block_index: number;
+  title: string;
+  value: number;
+  interpretation: string;
+  action_hint: string;
+};
 
 export default function DepartmentDetail() {
   const { id } = useParams<{ id: string }>();
   const [name, setName] = useState("");
   const [avgEssi, setAvgEssi] = useState<number | null>(null);
   const [employees, setEmployees] = useState<DepartmentEmployee[]>([]);
+  const [blocks, setBlocks] = useState<BlockMetric[]>([]);
+  const [riskContributors, setRiskContributors] = useState<DepartmentEmployee[]>([]);
   const [err, setErr] = useState<string | null>(null);
   const [indexErr, setIndexErr] = useState<string | null>(null);
 
@@ -29,6 +38,20 @@ export default function DepartmentDetail() {
       }
       const j = (await res.json()) as { id: number; name: string };
       setName(j.name);
+    })();
+  }, [id]);
+
+  useEffect(() => {
+    if (!id) return;
+    void (async () => {
+      const res = await apiFetch(`/departments/${id}/breakdown`);
+      if (!res.ok) return;
+      const j = (await res.json()) as {
+        blocks: BlockMetric[];
+        risk_contributors: DepartmentEmployee[];
+      };
+      setBlocks(j.blocks ?? []);
+      setRiskContributors(j.risk_contributors ?? []);
     })();
   }, [id]);
 
@@ -107,6 +130,47 @@ export default function DepartmentDetail() {
             </div>
           </div>
         </div>
+      </div>
+
+      <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
+        <h2 className="text-lg font-semibold text-gray-900 mb-3">Индексы по 5 блокам</h2>
+        {blocks.length === 0 ? (
+          <p className="text-sm text-gray-500">Пока нет данных по блокам.</p>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {blocks.map((b) => (
+              <div key={b.block_index} className="rounded-xl border border-gray-200 px-3 py-3">
+                <div className="text-xs text-gray-500">Блок {b.block_index}</div>
+                <div className="font-medium text-gray-900">{b.title}</div>
+                <div className="text-lg font-semibold text-[#0052FF]">{b.value.toFixed(1)}</div>
+                <div className="text-xs text-gray-500">{b.interpretation}</div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
+        <h2 className="text-lg font-semibold text-gray-900 mb-3">Кто формирует риск/падение</h2>
+        {riskContributors.length === 0 ? (
+          <p className="text-sm text-gray-500">Нет данных по риску.</p>
+        ) : (
+          <div className="space-y-2">
+            {riskContributors.slice(0, 5).map((employee) => (
+              <Link
+                key={employee.id}
+                to={`/employees/${employee.id}`}
+                className="flex items-center justify-between rounded-xl border border-gray-200 px-3 py-2 hover:border-[#0052FF]"
+              >
+                <div>
+                  <div className="text-sm font-medium text-gray-900">{employee.name}</div>
+                  <div className="text-xs text-gray-500">{employee.status}</div>
+                </div>
+                <div className="text-sm font-semibold text-gray-900">ESSI {employee.essi}</div>
+              </Link>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">

@@ -6,12 +6,14 @@ from app.dependencies import audit, get_current_user, require_roles
 from app.models import Department, Employee, IndexRecord, User, UserRole
 from app.schemas import (
     DepartmentBasic,
+    DepartmentBreakdownOut,
     DepartmentCreate,
     DepartmentIndexOut,
     DepartmentListItem,
     DepartmentListPage,
     DepartmentPatch,
 )
+from app.services.dashboard import department_block_breakdown, status_from_essi
 from app.services.essi import department_avg_essi
 
 router = APIRouter(prefix="/departments", tags=["departments"])
@@ -123,6 +125,44 @@ def department_index(
     if avg is None:
         raise HTTPException(status_code=404, detail="No data")
     return DepartmentIndexOut(department_id=department_id, avg_essi=avg)
+
+
+@router.get("/{department_id}/breakdown", response_model=DepartmentBreakdownOut)
+def department_breakdown(
+    department_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    if user.role == UserRole.employee:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    dep = db.query(Department).filter(Department.id == department_id).first()
+    if not dep:
+        raise HTTPException(status_code=404, detail="Not found")
+    emps = db.query(Employee).filter(Employee.department_id == department_id).all()
+    contributors = []
+    for e in emps:
+        idx = (
+            db.query(IndexRecord)
+            .filter(IndexRecord.employee_id == e.id)
+            .order_by(IndexRecord.calc_date.desc(), IndexRecord.id.desc())
+            .first()
+        )
+        if not idx:
+            continue
+        contributors.append(
+            {
+                "id": e.id,
+                "name": e.name,
+                "essi": round(idx.essi, 1),
+                "status": status_from_essi(idx.essi),
+            }
+        )
+    contributors.sort(key=lambda x: x["essi"])
+    return DepartmentBreakdownOut(
+        department_id=department_id,
+        blocks=department_block_breakdown(db, department_id),
+        risk_contributors=contributors[:10],
+    )
 
 
 @router.patch("/{department_id}", response_model=DepartmentListItem)

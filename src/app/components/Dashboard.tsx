@@ -12,6 +12,7 @@ import {
   Line,
   BarChart,
   Bar,
+  ReferenceDot,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -36,6 +37,13 @@ type DashboardPayload = {
   productivity_pct: number;
   productivity_delta_pct: number;
   essi_series: { id: string; month: string; value: number }[];
+  essi_blocks: {
+    block_index: number;
+    title: string;
+    value: number;
+    interpretation: string;
+    action_hint: string;
+  }[];
   department_bars: { id: string; department: string; essi: number }[];
   recent_employees: {
     id: string;
@@ -53,6 +61,15 @@ type DashboardPayload = {
     status: string;
   }[];
 };
+type EventPoint = {
+  id: number;
+  event_date: string;
+  event_type: string;
+  title: string;
+  description: string | null;
+  level: "organization" | "department";
+  department_id: number | null;
+};
 
 function parseDepartmentId(rawId: string): number | null {
   const numeric = Number(rawId);
@@ -68,6 +85,7 @@ export default function Dashboard() {
   const [data, setData] = useState<DashboardPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [months, setMonths] = useState(6);
+  const [events, setEvents] = useState<EventPoint[]>([]);
 
   useEffect(() => {
     void (async () => {
@@ -79,6 +97,13 @@ export default function Dashboard() {
         return;
       }
       setData(await res.json());
+      const eventsRes = await apiFetch(`/reports/events?months=${months}`);
+      if (eventsRes.ok) {
+        const rows = (await eventsRes.json()) as EventPoint[];
+        setEvents(rows);
+      } else {
+        setEvents([]);
+      }
     })();
   }, [months]);
 
@@ -101,6 +126,7 @@ export default function Dashboard() {
     }));
   const recentEmployees = data.recent_employees;
   const recommendations = data.recommendations_preview;
+  const blockMetrics = data.essi_blocks ?? [];
   const sparseData =
     data.department_bars.length === 0 && data.recent_employees.length === 0;
 
@@ -327,6 +353,28 @@ export default function Dashboard() {
         </div>
       </div>
 
+      <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <h2 className="text-lg font-semibold text-gray-900 mb-3">Расшифровка ESSI</h2>
+        <p className="text-sm text-gray-600 mb-4">
+          ESSI состоит из 5 блоков методики. Главный индекс показывает общую устойчивость, частные индексы —
+          зоны, где нужны точечные действия.
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3">
+          {blockMetrics.map((b) => (
+            <div
+              key={b.block_index}
+              className="rounded-xl border border-gray-200 px-3 py-3"
+              title={`Что это: ${b.title}. Зачем: понимать источник динамики ESSI. Что делать: ${b.action_hint}`}
+            >
+              <div className="text-xs text-gray-500">Блок {b.block_index}</div>
+              <div className="text-sm font-medium text-gray-900 line-clamp-2">{b.title}</div>
+              <div className="text-xl font-bold text-[#0052FF] mt-2">{b.value.toFixed(1)}</div>
+              <div className="text-xs text-gray-500 mt-1">{b.interpretation}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white rounded-xl border border-gray-200 p-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Динамика ESSI</h2>
@@ -353,8 +401,38 @@ export default function Dashboard() {
                   dot={{ fill: "#0052FF", r: 4 }}
                   activeDot={{ r: 6 }}
                 />
+                {events.map((ev) => {
+                  const monthKey = ev.event_date.slice(0, 7);
+                  const point = essiData.find((p) => p.id === monthKey);
+                  if (!point) return null;
+                  return (
+                    <ReferenceDot
+                      key={ev.id}
+                      x={point.month}
+                      y={point.value}
+                      r={5}
+                      fill="#F59E0B"
+                      stroke="#B45309"
+                      label={{
+                        value: "E",
+                        position: "top",
+                        fill: "#92400E",
+                        fontSize: 10,
+                      }}
+                    />
+                  );
+                })}
               </LineChart>
             </ResponsiveContainer>
+          )}
+          {events.length > 0 && (
+            <div className="mt-3 space-y-1">
+              {events.slice(0, 3).map((ev) => (
+                <div key={ev.id} className="text-xs text-gray-600" title={ev.description ?? ""}>
+                  <span className="font-medium">{ev.event_date}</span> · {ev.title}
+                </div>
+              ))}
+            </div>
           )}
         </div>
 

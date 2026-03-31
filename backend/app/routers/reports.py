@@ -1,15 +1,20 @@
 import os
+import tempfile
 from datetime import datetime
 
+import pandas as pd
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.dependencies import audit, get_current_user, require_roles
-from app.models import JobStatus, ReportExport, User, UserRole
+from app.models import JobStatus, ManagementEvent, ReportExport, User, UserRole
 from app.schemas import (
     DashboardResponse,
+    ManagementEventCreate,
+    ManagementEventOut,
+    ManagementEventPatch,
     ReportCreateRequest,
     ReportExportListItem,
     ReportExportListPage,
@@ -32,6 +37,86 @@ def dashboard(
     return DashboardResponse.model_validate(data)
 
 
+@router.get("/events", response_model=list[ManagementEventOut])
+def list_management_events(
+    months: int = Query(6, ge=1, le=36),
+    event_type: str | None = Query(None),
+    level: str | None = Query(None, pattern="^(organization|department)$"),
+    department_id: int | None = Query(None),
+    db: Session = Depends(get_db),
+    user: User = Depends(require_roles(UserRole.manager, UserRole.admin)),
+):
+    q = db.query(ManagementEvent)
+    if event_type:
+        q = q.filter(ManagementEvent.event_type == event_type)
+    if level:
+        q = q.filter(ManagementEvent.level == level)
+    if department_id is not None:
+        q = q.filter(ManagementEvent.department_id == department_id)
+    rows = q.order_by(ManagementEvent.event_date.desc(), ManagementEvent.id.desc()).limit(months * 10).all()
+    return [ManagementEventOut.model_validate(r) for r in rows]
+
+
+@router.post("/events", response_model=ManagementEventOut, status_code=201)
+def create_management_event(
+    body: ManagementEventCreate,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_roles(UserRole.manager, UserRole.admin)),
+):
+    if body.level == "department" and body.department_id is None:
+        raise HTTPException(status_code=400, detail="department_id required for department level")
+    row = ManagementEvent(
+        event_date=body.event_date,
+        event_type=body.event_type,
+        title=body.title.strip(),
+        description=body.description,
+        level=body.level,
+        department_id=body.department_id,
+        created_by_user_id=user.id,
+    )
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    audit(db, user, "management_event_create", "management_event", {"id": row.id})
+    return ManagementEventOut.model_validate(row)
+
+
+@router.patch("/events/{event_id}", response_model=ManagementEventOut)
+def patch_management_event(
+    event_id: int,
+    body: ManagementEventPatch,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_roles(UserRole.manager, UserRole.admin)),
+):
+    row = db.query(ManagementEvent).filter(ManagementEvent.id == event_id).first()
+    if not row:
+        raise HTTPException(status_code=404)
+    data = body.model_dump(exclude_unset=True)
+    for key, value in data.items():
+        setattr(row, key, value)
+    if row.level == "department" and row.department_id is None:
+        raise HTTPException(status_code=400, detail="department_id required for department level")
+    db.commit()
+    db.refresh(row)
+    audit(db, user, "management_event_update", "management_event", {"id": row.id})
+    return ManagementEventOut.model_validate(row)
+
+
+@router.delete("/events/{event_id}", status_code=204)
+def delete_management_event(
+    event_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_roles(UserRole.manager, UserRole.admin)),
+):
+    row = db.query(ManagementEvent).filter(ManagementEvent.id == event_id).first()
+    if not row:
+        raise HTTPException(status_code=404)
+    db.delete(row)
+    db.commit()
+    audit(db, user, "management_event_delete", "management_event", {"id": event_id})
+    return None
+
+
 @router.post("", response_model=ReportExportOut, status_code=202)
 def create_report(
     body: ReportCreateRequest,
@@ -48,6 +133,51 @@ def create_report(
     background_tasks.add_task(run_report_export, rep.id)
     audit(db, user, "report_requested", "report", {"id": rep.id, "kind": body.kind})
     return ReportExportOut(id=rep.id, kind=rep.kind, status=rep.status.value, download_url=None, detail=None)
+
+
+@router.get("/demo-template")
+def download_demo_template(
+    user: User = Depends(require_roles(UserRole.manager, UserRole.admin)),
+):
+    rows = [
+        {
+            "Шаг": 1,
+            "Роль": "HR",
+            "Действие": "Зафиксировать baseline ESSI и проблемный блок",
+            "Метрика до": "ESSI=58, Блок3=49",
+            "Мера": "План обучения руководителей + корректировка KPI",
+            "Дата события": datetime.utcnow().date().isoformat(),
+            "Ожидаемый эффект": "Рост вовлеченности и снижение доли риска",
+        },
+        {
+            "Шаг": 2,
+            "Роль": "Руководитель",
+            "Действие": "Запустить меры и отметить событие на шкале",
+            "Метрика до": "Зона риска 24%",
+            "Мера": "Регулярные 1:1, пересмотр целей, обратная связь",
+            "Дата события": datetime.utcnow().date().isoformat(),
+            "Ожидаемый эффект": "Переход части сотрудников в стабильную зону",
+        },
+        {
+            "Шаг": 3,
+            "Роль": "HR",
+            "Действие": "Провести повторный замер через 4-8 недель",
+            "Метрика до": "ESSI=58",
+            "Мера": "Сравнение до/после и корректировка плана",
+            "Дата события": datetime.utcnow().date().isoformat(),
+            "Ожидаемый эффект": "ESSI>=65, Блок3>=60",
+        },
+    ]
+    tmpdir = os.path.join(tempfile.gettempdir(), "potential_reports")
+    os.makedirs(tmpdir, exist_ok=True)
+    filename = f"demo_hr_case_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    path = os.path.join(tmpdir, filename)
+    pd.DataFrame(rows).to_excel(path, index=False)
+    return FileResponse(
+        path,
+        filename="demo_hr_case_template.xlsx",
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
 
 
 @router.get("/exports", response_model=ReportExportListPage)

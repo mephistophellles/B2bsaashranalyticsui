@@ -6,6 +6,7 @@ import { useAuth } from "@/auth/AuthContext";
 type Q = { id: number; block_index: number; order_in_block: number; text: string };
 
 const CONSENT_KEY = "potential_pd_consent_v1";
+const SURVEY_SHUFFLE_SEED_KEY = "potential_survey_shuffle_seed_v1";
 
 const FALLBACK_BLOCK_TITLES: Record<number, string> = {
   1: "Блок 1",
@@ -29,6 +30,18 @@ export default function Survey() {
   const [consentBusy, setConsentBusy] = useState(false);
   const [blockStep, setBlockStep] = useState(0);
   const [submitBusy, setSubmitBusy] = useState(false);
+  const [shuffleSeed, setShuffleSeed] = useState(0);
+
+  useEffect(() => {
+    const existing = sessionStorage.getItem(SURVEY_SHUFFLE_SEED_KEY);
+    if (existing && /^\d+$/.test(existing)) {
+      setShuffleSeed(Number(existing));
+      return;
+    }
+    const generated = Math.floor(Math.random() * 1_000_000_000);
+    sessionStorage.setItem(SURVEY_SHUFFLE_SEED_KEY, String(generated));
+    setShuffleSeed(generated);
+  }, []);
 
   useEffect(() => {
     void (async () => {
@@ -54,10 +67,17 @@ export default function Survey() {
       arr.push(q);
       map.set(q.block_index, arr);
     }
+    function hashWithSeed(id: number) {
+      const x = Math.sin(id * 99991 + shuffleSeed) * 10000;
+      return x - Math.floor(x);
+    }
     return [...map.entries()]
       .sort((a, b) => a[0] - b[0])
-      .map(([idx, qs]) => ({ blockIndex: idx, questions: qs.sort((a, b) => a.order_in_block - b.order_in_block) }));
-  }, [questions]);
+      .map(([idx, qs]) => ({
+        blockIndex: idx,
+        questions: [...qs].sort((a, b) => hashWithSeed(a.id) - hashWithSeed(b.id)),
+      }));
+  }, [questions, shuffleSeed]);
 
   const current = blocks[blockStep];
   const progress = blocks.length ? ((blockStep + 1) / blocks.length) * 100 : 0;

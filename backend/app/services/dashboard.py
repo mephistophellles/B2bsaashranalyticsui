@@ -2,6 +2,7 @@ from collections import defaultdict
 from sqlalchemy.orm import Session
 
 from app.models import Department, Employee, IndexRecord, Recommendation, Survey, User
+from app.data.survey_methodology import METHODOLOGY_BLOCK_TITLES
 from app.privacy import mask_display_name
 from app.services.essi import block_scores_from_survey, essi_from_blocks, organization_avg_essi
 
@@ -20,6 +21,99 @@ MONTHS_RU = {
     11: "Ноя",
     12: "Дек",
 }
+
+
+def _block_interpretation(value: float) -> str:
+    if value >= 80:
+        return "Сильная зона"
+    if value >= 60:
+        return "Стабильная зона"
+    if value >= 40:
+        return "Зона внимания"
+    return "Критическая зона"
+
+
+def _block_action_hint(value: float) -> str:
+    if value >= 80:
+        return "Удерживать практики и масштабировать успешные решения."
+    if value >= 60:
+        return "Провести точечные улучшения и мониторить динамику."
+    if value >= 40:
+        return "Запустить корректирующие меры с ответственными и сроками."
+    return "Нужен срочный план действий и повторный замер в коротком цикле."
+
+
+def block_metrics_from_scores(scores: list[float]) -> list[dict]:
+    out: list[dict] = []
+    for i, raw in enumerate(scores, start=1):
+        value = max(0.0, min(100.0, (raw / 25.0) * 100.0))
+        out.append(
+            {
+                "block_index": i,
+                "title": METHODOLOGY_BLOCK_TITLES.get(i, f"Блок {i}"),
+                "value": round(value, 1),
+                "interpretation": _block_interpretation(value),
+                "action_hint": _block_action_hint(value),
+            }
+        )
+    return out
+
+
+def latest_survey_per_employee(db: Session) -> dict[int, Survey]:
+    rows = db.query(Survey).order_by(Survey.survey_date.desc(), Survey.id.desc()).all()
+    out: dict[int, Survey] = {}
+    for row in rows:
+        if row.employee_id not in out:
+            out[row.employee_id] = row
+    return out
+
+
+def organization_block_metrics(db: Session) -> list[dict]:
+    latest = latest_survey_per_employee(db)
+    if not latest:
+        return []
+    sums = [0.0] * 5
+    count = 0
+    for s in latest.values():
+        vals = block_scores_from_survey(s)
+        for i in range(5):
+            sums[i] += vals[i]
+        count += 1
+    avg = [x / count for x in sums]
+    return block_metrics_from_scores(avg)
+
+
+def department_block_breakdown(db: Session, department_id: int) -> list[dict]:
+    emps = db.query(Employee).filter(Employee.department_id == department_id).all()
+    if not emps:
+        return []
+    latest = latest_survey_per_employee(db)
+    sums = [0.0] * 5
+    count = 0
+    for e in emps:
+        s = latest.get(e.id)
+        if not s:
+            continue
+        vals = block_scores_from_survey(s)
+        for i in range(5):
+            sums[i] += vals[i]
+        count += 1
+    if count == 0:
+        return []
+    avg = [x / count for x in sums]
+    return block_metrics_from_scores(avg)
+
+
+def employee_block_breakdown(db: Session, employee_id: int) -> list[dict]:
+    s = (
+        db.query(Survey)
+        .filter(Survey.employee_id == employee_id)
+        .order_by(Survey.survey_date.desc(), Survey.id.desc())
+        .first()
+    )
+    if not s:
+        return []
+    return block_metrics_from_scores(block_scores_from_survey(s))
 
 
 def monthly_org_essi_series(db: Session, limit: int = 6) -> list[dict]:
@@ -201,6 +295,7 @@ def build_dashboard(
         "productivity_pct": prod_curr,
         "productivity_delta_pct": productivity_delta,
         "essi_series": series if series else [{"id": "m0", "month": "—", "value": round(org, 1)}],
+        "essi_blocks": organization_block_metrics(db),
         "department_bars": dept_bars,
         "recent_employees": recent,
         "recommendations_preview": rec_preview,

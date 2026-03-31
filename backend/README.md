@@ -88,3 +88,9 @@ pip install -r requirements-ml.txt
 
 - `POST /api/reports` с телом `{"kind": "summary"}` — PDF.
 - `{"kind": "summary_excel"}` или `"excel"` — Excel (сводка ESSI).
+- `GET /api/reports/demo-template` — демонстрационный Excel-кейс для HR/руководителя.
+- Управленческие события (для точек на графике динамики):
+  - `GET /api/reports/events`
+  - `POST /api/reports/events`
+  - `PATCH /api/reports/events/{id}`
+  - `DELETE /api/reports/events/{id}`

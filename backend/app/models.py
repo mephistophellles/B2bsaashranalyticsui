@@ -161,6 +161,20 @@ class ReportExport(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
+class ManagementEvent(Base):
+    __tablename__ = "management_events"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    event_date: Mapped[date] = mapped_column(Date, index=True)
+    event_type: Mapped[str] = mapped_column(String(64))  # training | kpi_change | process_change | other
+    title: Mapped[str] = mapped_column(String(255))
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    level: Mapped[str] = mapped_column(String(32), default="organization")  # organization | department
+    department_id: Mapped[int | None] = mapped_column(ForeignKey("departments.id"), nullable=True)
+    created_by_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
 class SurveyQuestion(Base):
     __tablename__ = "survey_questions"
 

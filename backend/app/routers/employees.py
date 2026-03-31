@@ -4,18 +4,23 @@ from sqlalchemy.orm import Session
 from app.date_locale import format_hire_date_ru
 from app.database import get_db
 from app.dependencies import audit, get_current_user, require_roles
-from app.models import Department, Employee, IndexRecord, Survey, User, UserRole
+from app.models import Department, Employee, IndexRecord, Recommendation, Survey, User, UserRole
 from app.privacy import mask_employee_list_item, privacy_active_for
 from app.schemas import (
     EmployeeCreate,
     EmployeeDetailOut,
+    EmployeeBreakdownOut,
     EmployeeListItem,
     EmployeeListPage,
     EmployeePatch,
     EmployeeSurveyRow,
     EmployeeIndexOut,
 )
-from app.services.dashboard import employee_trend, status_from_essi
+from app.services.dashboard import (
+    employee_block_breakdown,
+    employee_trend,
+    status_from_essi,
+)
 
 router = APIRouter(prefix="/employees", tags=["employees"])
 
@@ -43,6 +48,7 @@ def _build_list_item(db: Session, emp: Employee) -> EmployeeListItem:
         name=emp.name,
         email=emp.email,
         phone=emp.phone,
+        department_id=emp.department_id,
         department=dept.name if dept else "",
         position=emp.position,
         essi=round(essi, 0),
@@ -178,6 +184,43 @@ def employee_detail(
         surveys=srows,
         redacted=privacy_active_for(user),
         has_linked_user=linked,
+    )
+
+
+@router.get("/{employee_id}/breakdown", response_model=EmployeeBreakdownOut)
+def employee_breakdown(
+    employee_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    if user.role == UserRole.employee and user.employee_id != employee_id:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    emp = db.query(Employee).filter(Employee.id == employee_id).first()
+    if not emp:
+        raise HTTPException(status_code=404, detail="Not found")
+    recs = (
+        db.query(Recommendation)
+        .filter(Recommendation.department_id == emp.department_id)
+        .order_by(Recommendation.created_at.desc())
+        .limit(3)
+        .all()
+    )
+    return EmployeeBreakdownOut(
+        employee_id=employee_id,
+        blocks=employee_block_breakdown(db, employee_id),
+        recommendations=[
+            {
+                "id": r.id,
+                "department_id": r.department_id,
+                "title": r.title,
+                "description": r.text,
+                "priority": r.priority,
+                "status": r.status,
+                "created_at": r.created_at,
+                "model_version": r.model_version,
+            }
+            for r in recs
+        ],
     )
 
 

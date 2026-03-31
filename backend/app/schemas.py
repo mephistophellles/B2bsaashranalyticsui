@@ -72,6 +72,14 @@ class DashboardRecommendation(BaseModel):
     status: str
 
 
+class BlockMetricOut(BaseModel):
+    block_index: int
+    title: str
+    value: float
+    interpretation: str
+    action_hint: str
+
+
 class DashboardResponse(BaseModel):
     essi_index: float
     essi_delta_pct: float
@@ -86,6 +94,7 @@ class DashboardResponse(BaseModel):
     productivity_pct: float
     productivity_delta_pct: float
     essi_series: list[DashboardSeriesPoint]
+    essi_blocks: list[BlockMetricOut] = []
     department_bars: list[DashboardDepartmentBar]
     recent_employees: list[DashboardEmployeeRow]
     recommendations_preview: list[DashboardRecommendation]
@@ -227,6 +236,7 @@ class EmployeeListItem(BaseModel):
     name: str
     email: str | None
     phone: str | None
+    department_id: int | None = None
     department: str
     position: str | None
     essi: float
@@ -262,6 +272,12 @@ class EmployeeDetailOut(EmployeeListItem):
     has_linked_user: bool = False
 
 
+class EmployeeBreakdownOut(BaseModel):
+    employee_id: int
+    blocks: list[BlockMetricOut]
+    recommendations: list[RecommendationOut] = []
+
+
 class DepartmentListItem(BaseModel):
     id: int
     name: str
@@ -280,6 +296,19 @@ class DepartmentListPage(BaseModel):
 class DepartmentBasic(BaseModel):
     id: int
     name: str
+
+
+class DepartmentRiskEmployeeOut(BaseModel):
+    id: int
+    name: str
+    essi: float
+    status: str
+
+
+class DepartmentBreakdownOut(BaseModel):
+    department_id: int
+    blocks: list[BlockMetricOut]
+    risk_contributors: list[DepartmentRiskEmployeeOut]
 
 
 class ReportCreateRequest(BaseModel):
@@ -338,6 +367,36 @@ class UserAdminPatch(BaseModel):
 
 class UserAdminResetPassword(BaseModel):
     new_password: str = Field(min_length=6)
+
+
+class ManagementEventBase(BaseModel):
+    event_date: date
+    event_type: str
+    title: str = Field(min_length=1, max_length=255)
+    description: str | None = None
+    level: str = Field(pattern="^(organization|department)$")
+    department_id: int | None = None
+
+
+class ManagementEventCreate(ManagementEventBase):
+    pass
+
+
+class ManagementEventPatch(BaseModel):
+    event_date: date | None = None
+    event_type: str | None = None
+    title: str | None = Field(default=None, min_length=1, max_length=255)
+    description: str | None = None
+    level: str | None = Field(default=None, pattern="^(organization|department)$")
+    department_id: int | None = None
+
+
+class ManagementEventOut(ManagementEventBase):
+    id: int
+    created_by_user_id: int | None = None
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 class DepartmentCreate(BaseModel):
