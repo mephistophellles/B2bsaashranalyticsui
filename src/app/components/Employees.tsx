@@ -9,6 +9,11 @@ import {
   Mail,
 } from "lucide-react";
 import { apiFetch, parseErrorMessage } from "@/api/client";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
+
+const latinRegex = /[A-Za-z]/;
+const cyrillicRegex = /[А-Яа-яЁё]/;
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 type Emp = {
   id: number;
@@ -46,7 +51,8 @@ function exportEmployeesCsv(rows: Emp[]) {
     return s;
   };
   const lines = [
-    headers.join(","),
+    "sep=;",
+    headers.join(";"),
     ...rows.map((e) =>
       [
         e.id,
@@ -61,10 +67,10 @@ function exportEmployeesCsv(rows: Emp[]) {
         e.trend,
       ]
         .map(esc)
-        .join(","),
+        .join(";"),
     ),
   ];
-  const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+  const blob = new Blob([`\uFEFF${lines.join("\n")}`], { type: "text/csv;charset=utf-8" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
   a.download = `employees_${new Date().toISOString().slice(0, 10)}.csv`;
@@ -81,18 +87,47 @@ export default function Employees() {
   const [deptOptions, setDeptOptions] = useState<DeptOpt[]>([]);
   const [totalEmployees, setTotalEmployees] = useState(0);
   const [page, setPage] = useState(1);
-  const pageSize = 20;
+  const pageSize = 10;
   const [newName, setNewName] = useState("");
   const [newDeptId, setNewDeptId] = useState<number | "">("");
   const [newPosition, setNewPosition] = useState("");
   const [newEmail, setNewEmail] = useState("");
   const [createMsg, setCreateMsg] = useState<string | null>(null);
   const [createBusy, setCreateBusy] = useState(false);
+  const nameError =
+    newName.trim().length > 0 && latinRegex.test(newName)
+      ? "Поле ФИО должно быть на кириллице."
+      : null;
+  const positionError =
+    newPosition.trim().length > 0 && latinRegex.test(newPosition)
+      ? "Поле должности должно быть на кириллице."
+      : null;
+  const emailError =
+    newEmail.trim().length === 0
+      ? null
+      : cyrillicRegex.test(newEmail)
+        ? "Email не должен содержать кириллицу."
+        : !emailRegex.test(newEmail.trim())
+          ? "Введите корректный email."
+          : null;
+  const hasValidationError = Boolean(nameError || positionError || emailError);
+
+  function renderTrend(trend: string) {
+    if (trend === "up") return <TrendingUp className="text-green-600" size={18} />;
+    if (trend === "down") return <TrendingDown className="text-red-600" size={18} />;
+    if (trend === "stable") return <div className="w-4 h-0.5 bg-gray-400" title="Стабильно" />;
+    return <span className="text-xs text-gray-400">нет данных</span>;
+  }
 
   useEffect(() => {
     const q = searchParams.get("q") ?? "";
     setSearchQuery((prev) => (prev === q ? prev : q));
   }, [searchParams]);
+
+  useEffect(() => {
+    const maxPage = Math.max(1, Math.ceil(totalEmployees / pageSize));
+    if (page > maxPage) setPage(maxPage);
+  }, [totalEmployees, page]);
 
   useEffect(() => {
     void (async () => {
@@ -127,7 +162,7 @@ export default function Employees() {
 
   async function createEmployee(e: React.FormEvent) {
     e.preventDefault();
-    if (newDeptId === "") return;
+    if (newDeptId === "" || hasValidationError) return;
     setCreateBusy(true);
     setCreateMsg(null);
     try {
@@ -159,14 +194,15 @@ export default function Employees() {
     }
   }
 
-  const departments = useMemo(
-    () => ["Все", ...deptOptions.map((d) => d.name)],
-    [deptOptions],
-  );
+  const departments = useMemo(() => ["Все", ...deptOptions.map((d) => d.name)], [deptOptions]);
+  const totalPages = Math.max(1, Math.ceil(totalEmployees / pageSize));
   const filteredEmployees = employeesData;
 
   return (
     <div className="p-6">
+      <div className="mb-4 rounded-2xl border border-blue-100 bg-gradient-to-r from-blue-50 to-indigo-50 px-4 py-3 text-sm text-blue-900">
+        Команда и метрики по сотрудникам: добавляйте новых сотрудников и отслеживайте динамику ESSI.
+      </div>
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900 mb-2">Сотрудники</h1>
         <p className="text-gray-600">
@@ -180,44 +216,63 @@ export default function Employees() {
       >
         <h2 className="text-sm font-semibold text-gray-800">Добавить сотрудника</h2>
         {createMsg && <p className="text-sm text-red-600">{createMsg}</p>}
-        <div className="flex flex-wrap gap-3 items-end">
-          <input
-            className="border rounded-xl px-3 py-2 min-w-[160px]"
-            placeholder="ФИО"
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            required
-          />
-          <select
-            className="border rounded-xl px-3 py-2 min-w-[140px]"
-            value={newDeptId}
-            onChange={(e) => setNewDeptId(Number(e.target.value))}
-            required
-          >
-            <option value="">Отдел</option>
-            {deptOptions.map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.name}
-              </option>
-            ))}
-          </select>
-          <input
-            className="border rounded-xl px-3 py-2 min-w-[140px]"
-            placeholder="Должность"
-            value={newPosition}
-            onChange={(e) => setNewPosition(e.target.value)}
-          />
-          <input
-            type="email"
-            className="border rounded-xl px-3 py-2 min-w-[160px]"
-            placeholder="Email"
-            value={newEmail}
-            onChange={(e) => setNewEmail(e.target.value)}
-          />
+        <div className="flex flex-wrap gap-3 items-start">
+          <div className="min-w-[220px] flex-1">
+            <input
+              className={`w-full h-11 border rounded-xl px-3 text-sm ${
+                nameError ? "border-red-400 bg-red-50" : "border-gray-300"
+              }`}
+              placeholder="ФИО"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              required
+            />
+            {nameError && <p className="mt-1 text-xs text-red-600">{nameError}</p>}
+          </div>
+          <div className="min-w-[200px]">
+            <Select
+              value={newDeptId === "" ? "" : String(newDeptId)}
+              onValueChange={(value) => setNewDeptId(value === "" ? "" : Number(value))}
+            >
+              <SelectTrigger className="w-full h-11 rounded-xl border-gray-300 bg-white text-sm">
+                <SelectValue placeholder="Отдел" />
+              </SelectTrigger>
+              <SelectContent>
+                {deptOptions.map((d) => (
+                  <SelectItem key={d.id} value={String(d.id)}>
+                    {d.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="min-w-[220px] flex-1">
+            <input
+              className={`w-full h-11 border rounded-xl px-3 text-sm ${
+                positionError ? "border-red-400 bg-red-50" : "border-gray-300"
+              }`}
+              placeholder="Должность"
+              value={newPosition}
+              onChange={(e) => setNewPosition(e.target.value)}
+            />
+            {positionError && <p className="mt-1 text-xs text-red-600">{positionError}</p>}
+          </div>
+          <div className="min-w-[240px] flex-1">
+            <input
+              type="email"
+              className={`w-full h-11 border rounded-xl px-3 text-sm ${
+                emailError ? "border-red-400 bg-red-50" : "border-gray-300"
+              }`}
+              placeholder="Email"
+              value={newEmail}
+              onChange={(e) => setNewEmail(e.target.value)}
+            />
+            {emailError && <p className="mt-1 text-xs text-red-600">{emailError}</p>}
+          </div>
           <button
             type="submit"
-            disabled={createBusy || newDeptId === ""}
-            className="px-4 py-2 rounded-xl bg-[#0052FF] text-white font-medium text-sm disabled:opacity-50"
+            disabled={createBusy || newDeptId === "" || hasValidationError}
+            className="h-11 px-5 rounded-xl bg-[#0052FF] text-white font-medium text-sm disabled:opacity-50"
           >
             {createBusy ? "…" : "Создать"}
           </button>
@@ -246,22 +301,26 @@ export default function Employees() {
               />
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 pb-[1px]">
             <Filter size={18} className="text-gray-500" />
-            <select
+            <Select
               value={selectedDepartment}
-              onChange={(e) => {
-                setSelectedDepartment(e.target.value);
+              onValueChange={(value) => {
+                setSelectedDepartment(value);
                 setPage(1);
               }}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0052FF] focus:border-transparent bg-white"
             >
-              {departments.map((dept) => (
-                <option key={dept} value={dept}>
-                  {dept}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger className="h-10 min-w-48 rounded-lg border-gray-300 bg-white">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {departments.map((dept) => (
+                  <SelectItem key={dept} value={dept}>
+                    {dept}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <button
             type="button"
@@ -296,6 +355,12 @@ export default function Employees() {
           <div className="text-sm text-gray-600 mb-1">Зона риска</div>
           <div className="text-2xl font-bold text-amber-600">
             {employeesData.filter((e) => e.status === "Зона риска").length}
+          </div>
+        </div>
+        <div className="bg-white rounded-xl border border-gray-200 p-4">
+          <div className="text-sm text-gray-600 mb-1">Новые сотрудники</div>
+          <div className="text-2xl font-bold text-sky-600">
+            {employeesData.filter((e) => e.status === "Новый сотрудник").length}
           </div>
         </div>
         <div className="bg-white rounded-xl border border-gray-200 p-4">
@@ -376,31 +441,30 @@ export default function Employees() {
                   <td className="py-4 px-6 text-sm text-gray-700">{employee.engagement}%</td>
                   <td className="py-4 px-6 text-sm text-gray-700">{employee.productivity}%</td>
                   <td className="py-4 px-6 text-sm text-gray-700">{employee.status}</td>
-                  <td className="py-4 px-6">
-                    {employee.trend === "up" && <TrendingUp className="text-green-600" size={18} />}
-                    {employee.trend === "down" && <TrendingDown className="text-red-600" size={18} />}
-                    {employee.trend === "stable" && <div className="w-4 h-0.5 bg-gray-400" />}
-                  </td>
+                  <td className="py-4 px-6">{renderTrend(employee.trend)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
         <div className="px-6 py-3 border-t border-gray-100 flex items-center justify-between text-sm">
-          <button
-            type="button"
-            disabled={page <= 1}
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-            className="px-3 py-1.5 rounded-lg border border-gray-300 disabled:opacity-40"
-          >
-            Назад
-          </button>
+          {page > 1 ? (
+            <button
+              type="button"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              className="px-3 py-1.5 rounded-lg border border-gray-300"
+            >
+              Назад
+            </button>
+          ) : (
+            <div />
+          )}
           <span className="text-gray-600">
-            Страница {page} из {Math.max(1, Math.ceil(totalEmployees / pageSize))}
+            Страница {page} из {totalPages}
           </span>
           <button
             type="button"
-            disabled={page >= Math.ceil(totalEmployees / pageSize)}
+            disabled={page >= totalPages}
             onClick={() => setPage((p) => p + 1)}
             className="px-3 py-1.5 rounded-lg border border-gray-300 disabled:opacity-40"
           >

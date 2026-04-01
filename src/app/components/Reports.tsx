@@ -6,6 +6,8 @@ import {
   parseErrorMessage,
   sleep,
 } from "@/api/client";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "./ui/accordion";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 
 type JobRow = { id: number; status: string; detail: string | null };
 type ExportRow = {
@@ -310,6 +312,9 @@ export default function Reports() {
 
   return (
     <div className="p-6 space-y-6">
+      <div className="rounded-2xl border border-blue-100 bg-gradient-to-r from-blue-50 to-indigo-50 px-4 py-3 text-sm text-blue-900">
+        Центр данных: импорт опросов, пересчёт индексов, отчёты и управленческие события.
+      </div>
       <div>
         <h1 className="text-2xl font-bold text-gray-900 mb-2 tracking-tight">Отчеты и данные</h1>
         <p className="text-gray-600">Импорт CSV/XLSX, PDF/Excel, пересчёт индексов, экономика</p>
@@ -480,7 +485,7 @@ export default function Reports() {
           <button
             type="button"
             onClick={() => void calcEconomy()}
-            className="px-4 py-2 rounded-xl border border-gray-300 font-medium hover:bg-gray-50"
+            className="px-4 py-2 rounded-xl bg-[#0052FF] text-white font-medium hover:bg-[#0047db]"
           >
             Рассчитать
           </button>
@@ -526,21 +531,25 @@ export default function Reports() {
           </label>
           <label className="text-sm md:col-span-1">
             Тип
-            <select
-              className="mt-1 w-full border rounded-xl px-2 py-2"
+            <Select
               value={eventForm.event_type}
-              onChange={(ev) => setEventForm({ ...eventForm, event_type: ev.target.value })}
+              onValueChange={(value) => setEventForm({ ...eventForm, event_type: value })}
             >
-              <option value="training">Обучение</option>
-              <option value="kpi_change">Изменение KPI</option>
-              <option value="process_change">Изменение процесса</option>
-              <option value="other">Другое</option>
-            </select>
+              <SelectTrigger className="mt-1 w-full h-11 rounded-xl border-gray-300 bg-white">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="training">Обучение</SelectItem>
+                <SelectItem value="kpi_change">Изменение KPI</SelectItem>
+                <SelectItem value="process_change">Изменение процесса</SelectItem>
+                <SelectItem value="other">Другое</SelectItem>
+              </SelectContent>
+            </Select>
           </label>
           <label className="text-sm md:col-span-2">
             Заголовок
             <input
-              className="mt-1 w-full border rounded-xl px-2 py-2"
+              className="mt-1 w-full h-11 border rounded-xl px-3"
               value={eventForm.title}
               onChange={(ev) => setEventForm({ ...eventForm, title: ev.target.value })}
               required
@@ -548,23 +557,27 @@ export default function Reports() {
           </label>
           <label className="text-sm md:col-span-1">
             Уровень
-            <select
-              className="mt-1 w-full border rounded-xl px-2 py-2"
+            <Select
               value={eventForm.level}
-              onChange={(ev) =>
-                setEventForm({ ...eventForm, level: ev.target.value as "organization" | "department" })
+              onValueChange={(value) =>
+                setEventForm({ ...eventForm, level: value as "organization" | "department" })
               }
             >
-              <option value="organization">Организация</option>
-              <option value="department">Отдел</option>
-            </select>
+              <SelectTrigger className="mt-1 w-full h-11 rounded-xl border-gray-300 bg-white">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="organization">Организация</SelectItem>
+                <SelectItem value="department">Отдел</SelectItem>
+              </SelectContent>
+            </Select>
           </label>
           {eventForm.level === "department" && (
             <label className="text-sm md:col-span-1">
               ID отдела
               <input
                 type="number"
-                className="mt-1 w-full border rounded-xl px-2 py-2"
+                className="mt-1 w-full h-11 border rounded-xl px-3"
                 value={eventForm.department_id}
                 onChange={(ev) => setEventForm({ ...eventForm, department_id: ev.target.value })}
                 required
@@ -603,62 +616,75 @@ export default function Reports() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="bg-white rounded-2xl border border-gray-200 p-4 shadow-sm">
-          <h3 className="font-semibold text-gray-900 mb-3">История импортов</h3>
-          <div className="space-y-2">
-            {jobHistory.length === 0 && <p className="text-sm text-gray-500">Нет задач импорта.</p>}
-            {jobHistory.map((job) => (
-              <div key={job.id} className="rounded-lg border border-gray-200 px-3 py-2 text-sm">
-                <div className="font-medium">Импорт #{job.id}</div>
-                <div className="text-xs text-gray-500">
-                  Статус: {job.status} {job.detail ? `· ${job.detail}` : ""}
-                </div>
+      <div className="bg-white rounded-2xl border border-gray-200 p-4 shadow-sm">
+        <p className="text-sm text-gray-600 mb-2">
+          История нужна для контроля фоновых задач, просмотра ошибок и повторного запуска/скачивания результатов.
+        </p>
+        <Accordion type="multiple" className="w-full">
+          <AccordionItem value="imports">
+            <AccordionTrigger className="text-base font-semibold text-gray-900">
+              История импортов
+            </AccordionTrigger>
+            <AccordionContent className="pb-0">
+              <div className="space-y-2 max-h-[18rem] overflow-y-auto pr-1">
+                {jobHistory.length === 0 && <p className="text-sm text-gray-500">Нет задач импорта.</p>}
+                {jobHistory.map((job) => (
+                  <div key={job.id} className="rounded-lg border border-gray-200 px-3 py-2 text-sm">
+                    <div className="font-medium">Импорт #{job.id}</div>
+                    <div className="text-xs text-gray-500">
+                      Статус: {job.status} {job.detail ? `· ${job.detail}` : ""}
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        </div>
-        <div className="bg-white rounded-2xl border border-gray-200 p-4 shadow-sm">
-          <h3 className="font-semibold text-gray-900 mb-3">История экспортов</h3>
-          <div className="space-y-2">
-            {exportHistory.length === 0 && <p className="text-sm text-gray-500">Нет отчётов.</p>}
-            {exportHistory.map((exp) => (
-              <div key={exp.id} className="rounded-lg border border-gray-200 px-3 py-2 text-sm">
-                <div className="font-medium">
-                  Отчёт #{exp.id} ({exp.kind === "summary_excel" || exp.kind === "excel" ? "Excel" : "PDF"})
-                </div>
-                <div className="text-xs text-gray-500">
-                  Статус: {exp.status} {exp.detail ? `· ${exp.detail}` : ""}
-                </div>
-                <div className="mt-2 flex gap-2">
-                  {exp.download_url && (
-                    <button
-                      type="button"
-                      className="px-2 py-1 rounded-lg text-xs bg-green-600 text-white"
-                      onClick={() =>
-                        void downloadWithAuth(
-                          exp.download_url!.replace("/api", ""),
-                          `report_${exp.id}.${exp.kind === "summary_excel" || exp.kind === "excel" ? "xlsx" : "pdf"}`,
-                        )
-                      }
-                    >
-                      Скачать
-                    </button>
-                  )}
-                  {exp.status === "failed" && (
-                    <button
-                      type="button"
-                      className="px-2 py-1 rounded-lg text-xs border border-[#0052FF] text-[#0052FF]"
-                      onClick={() => void retryExport(exp.id)}
-                    >
-                      Retry
-                    </button>
-                  )}
-                </div>
+            </AccordionContent>
+          </AccordionItem>
+          <AccordionItem value="exports">
+            <AccordionTrigger className="text-base font-semibold text-gray-900">
+              История экспортов
+            </AccordionTrigger>
+            <AccordionContent className="pb-0">
+              <div className="space-y-2 max-h-[18rem] overflow-y-auto pr-1">
+                {exportHistory.length === 0 && <p className="text-sm text-gray-500">Нет отчётов.</p>}
+                {exportHistory.map((exp) => (
+                  <div key={exp.id} className="rounded-lg border border-gray-200 px-3 py-2 text-sm">
+                    <div className="font-medium">
+                      Отчёт #{exp.id} ({exp.kind === "summary_excel" || exp.kind === "excel" ? "Excel" : "PDF"})
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      Статус: {exp.status} {exp.detail ? `· ${exp.detail}` : ""}
+                    </div>
+                    <div className="mt-2 flex gap-2">
+                      {exp.download_url && (
+                        <button
+                          type="button"
+                          className="px-2 py-1 rounded-lg text-xs bg-green-600 text-white"
+                          onClick={() =>
+                            void downloadWithAuth(
+                              exp.download_url!.replace("/api", ""),
+                              `report_${exp.id}.${exp.kind === "summary_excel" || exp.kind === "excel" ? "xlsx" : "pdf"}`,
+                            )
+                          }
+                        >
+                          Скачать
+                        </button>
+                      )}
+                      {exp.status === "failed" && (
+                        <button
+                          type="button"
+                          className="px-2 py-1 rounded-lg text-xs border border-[#0052FF] text-[#0052FF]"
+                          onClick={() => void retryExport(exp.id)}
+                        >
+                          Retry
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        </div>
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
       </div>
     </div>
   );

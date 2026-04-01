@@ -146,13 +146,15 @@ def employee_trend(db: Session, employee_id: int) -> str:
         .limit(2)
         .all()
     )
+    if len(surveys) == 0:
+        return "no_data"
     if len(surveys) < 2:
         return "stable"
     a = essi_from_blocks(block_scores_from_survey(surveys[0]))
     b = essi_from_blocks(block_scores_from_survey(surveys[1]))
-    if a > b + 1:
+    if a > b + 0.5:
         return "up"
-    if a < b - 1:
+    if a < b - 0.5:
         return "down"
     return "stable"
 

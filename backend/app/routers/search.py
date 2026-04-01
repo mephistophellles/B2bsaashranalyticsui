@@ -20,7 +20,7 @@ def global_search(
     if user.role == UserRole.employee:
         raise HTTPException(status_code=403, detail="Forbidden")
     term = q.strip()
-    if len(term) < 2:
+    if len(term) < 1:
         return []
     like = f"%{term}%"
     out: list[SearchResultItem] = []

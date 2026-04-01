@@ -10,17 +10,29 @@ export default function GlobalSearch() {
   const [q, setQ] = useState("");
   const [hits, setHits] = useState<Hit[]>([]);
   const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const runSearch = useCallback(async (term: string) => {
     const t = term.trim();
-    if (t.length < 2) {
+    if (t.length < 1) {
       setHits([]);
+      setBusy(false);
+      setError(null);
       return;
     }
+    setBusy(true);
+    setError(null);
     const res = await apiFetch(`/search?q=${encodeURIComponent(t)}`);
-    if (res.ok) setHits(await res.json());
+    if (res.ok) {
+      setHits(await res.json());
+    } else {
+      setHits([]);
+      setError("Ошибка поиска");
+    }
+    setBusy(false);
   }, []);
 
   useEffect(() => {
@@ -66,23 +78,39 @@ export default function GlobalSearch() {
           className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0052FF] focus:border-transparent"
         />
       </div>
-      {open && hits.length > 0 && (
-        <ul className="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg z-50 max-h-72 overflow-y-auto py-1">
-          {hits.map((h) => (
-            <li key={`${h.kind}-${h.id}`}>
-              <button
-                type="button"
-                className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex justify-between gap-2"
-                onClick={() => go(h)}
-              >
-                <span className="text-gray-900 truncate">{h.label}</span>
-                <span className="text-xs text-gray-400 shrink-0">
-                  {h.kind === "employee" ? "Сотрудник" : "Отдел"}
-                </span>
-              </button>
-            </li>
-          ))}
-        </ul>
+      {open && (
+        <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg z-50 max-h-72 overflow-y-auto py-1">
+          {q.trim().length < 1 && (
+            <p className="px-3 py-2 text-xs text-gray-500">Начните ввод для поиска</p>
+          )}
+          {q.trim().length >= 1 && busy && (
+            <p className="px-3 py-2 text-xs text-gray-500">Поиск...</p>
+          )}
+          {q.trim().length >= 1 && !busy && error && (
+            <p className="px-3 py-2 text-xs text-red-600">{error}</p>
+          )}
+          {q.trim().length >= 1 && !busy && !error && hits.length === 0 && (
+            <p className="px-3 py-2 text-xs text-gray-500">Ничего не найдено</p>
+          )}
+          {hits.length > 0 && (
+            <ul>
+              {hits.map((h) => (
+                <li key={`${h.kind}-${h.id}`}>
+                  <button
+                    type="button"
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex justify-between gap-2"
+                    onClick={() => go(h)}
+                  >
+                    <span className="text-gray-900 truncate">{h.label}</span>
+                    <span className="text-xs text-gray-400 shrink-0">
+                      {h.kind === "employee" ? "Сотрудник" : "Отдел"}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       )}
     </div>
   );

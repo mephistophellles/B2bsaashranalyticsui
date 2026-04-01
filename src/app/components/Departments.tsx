@@ -2,6 +2,15 @@ import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router";
 import { Building2, Pencil, Trash2 } from "lucide-react";
 import { apiFetch, parseErrorMessage } from "@/api/client";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "./ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 
 type Row = {
   id: number;
@@ -17,10 +26,15 @@ export default function Departments() {
   const [q, setQ] = useState("");
   const [sortBy, setSortBy] = useState<"name" | "employee_count" | "avg_essi">("name");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
-  const pageSize = 12;
+  const pageSize = 6;
   const [newName, setNewName] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [renameTarget, setRenameTarget] = useState<Row | null>(null);
+  const [renameName, setRenameName] = useState("");
+  const [renameBusy, setRenameBusy] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Row | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
 
   const load = useCallback(async () => {
     const params = new URLSearchParams({
@@ -42,6 +56,17 @@ export default function Departments() {
     void load();
   }, [load]);
 
+  useEffect(() => {
+    if (!msg) return;
+    const timer = setTimeout(() => setMsg(null), 4000);
+    return () => clearTimeout(timer);
+  }, [msg]);
+
+  useEffect(() => {
+    const maxPage = Math.max(1, Math.ceil(total / pageSize));
+    if (page > maxPage) setPage(maxPage);
+  }, [total, page]);
+
   async function createDept(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
@@ -62,32 +87,42 @@ export default function Departments() {
     }
   }
 
-  async function renameDept(id: number, current: string) {
-    const name = window.prompt("Новое название отдела", current);
-    if (name == null || !name.trim()) return;
-    const res = await apiFetch(`/departments/${id}`, {
+  async function renameDept() {
+    if (!renameTarget || !renameName.trim()) return;
+    setRenameBusy(true);
+    const res = await apiFetch(`/departments/${renameTarget.id}`, {
       method: "PATCH",
-      body: JSON.stringify({ name: name.trim() }),
+      body: JSON.stringify({ name: renameName.trim() }),
     });
     if (!res.ok) {
       setMsg(await parseErrorMessage(res));
+      setRenameBusy(false);
       return;
     }
+    setRenameTarget(null);
+    setRenameBusy(false);
     await load();
   }
 
-  async function deleteDept(id: number, name: string) {
-    if (!confirm(`Удалить отдел «${name}»? Только если в нём нет сотрудников.`)) return;
-    const res = await apiFetch(`/departments/${id}`, { method: "DELETE" });
+  async function deleteDept() {
+    if (!deleteTarget) return;
+    setDeleteBusy(true);
+    const res = await apiFetch(`/departments/${deleteTarget.id}`, { method: "DELETE" });
     if (!res.ok) {
       setMsg(await parseErrorMessage(res));
+      setDeleteBusy(false);
       return;
     }
+    setDeleteTarget(null);
+    setDeleteBusy(false);
     await load();
   }
 
   return (
     <div className="p-6 space-y-6">
+      <div className="rounded-2xl border border-blue-100 bg-gradient-to-r from-blue-50 to-indigo-50 px-4 py-3 text-sm text-blue-900">
+        Управляйте структурой отделов и сравнивайте их вклад в ESSI.
+      </div>
       <div>
         <h1 className="text-2xl font-bold text-gray-900 mb-2">Отделы</h1>
         <p className="text-gray-600">Сводка, создание и редактирование</p>
@@ -124,7 +159,7 @@ export default function Departments() {
         <label className="text-sm text-gray-600">
           Поиск
           <input
-            className="mt-1 border rounded-xl px-3 py-2 w-56"
+            className="mt-1 h-11 border rounded-xl px-3 w-56"
             placeholder="Название отдела"
             value={q}
             onChange={(e) => {
@@ -135,32 +170,40 @@ export default function Departments() {
         </label>
         <label className="text-sm text-gray-600">
           Сортировка
-          <select
-            className="mt-1 border rounded-xl px-3 py-2"
+          <Select
             value={sortBy}
-            onChange={(e) => {
-              setSortBy(e.target.value as typeof sortBy);
+            onValueChange={(value) => {
+              setSortBy(value as typeof sortBy);
               setPage(1);
             }}
           >
-            <option value="name">Название</option>
-            <option value="employee_count">Число сотрудников</option>
-            <option value="avg_essi">Средний ESSI</option>
-          </select>
+            <SelectTrigger className="mt-1 h-11 min-w-44 rounded-xl border-gray-300 bg-white">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="name">Название</SelectItem>
+              <SelectItem value="employee_count">Число сотрудников</SelectItem>
+              <SelectItem value="avg_essi">Средний ESSI</SelectItem>
+            </SelectContent>
+          </Select>
         </label>
         <label className="text-sm text-gray-600">
           Порядок
-          <select
-            className="mt-1 border rounded-xl px-3 py-2"
+          <Select
             value={sortOrder}
-            onChange={(e) => {
-              setSortOrder(e.target.value as typeof sortOrder);
+            onValueChange={(value) => {
+              setSortOrder(value as typeof sortOrder);
               setPage(1);
             }}
           >
-            <option value="asc">По возрастанию</option>
-            <option value="desc">По убыванию</option>
-          </select>
+            <SelectTrigger className="mt-1 h-11 min-w-44 rounded-xl border-gray-300 bg-white">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="asc">По возрастанию</SelectItem>
+              <SelectItem value="desc">По убыванию</SelectItem>
+            </SelectContent>
+          </Select>
         </label>
       </div>
 
@@ -190,15 +233,20 @@ export default function Departments() {
               <div className="flex gap-2 mt-3">
                 <button
                   type="button"
-                  onClick={() => void renameDept(d.id, d.name)}
+                  onClick={() => {
+                    setRenameTarget(d);
+                    setRenameName(d.name);
+                  }}
                   className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-lg border border-gray-200 hover:bg-gray-50"
                 >
                   <Pencil size={14} /> Переименовать
                 </button>
                 <button
                   type="button"
-                  onClick={() => void deleteDept(d.id, d.name)}
-                  className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-lg border border-red-200 text-red-700 hover:bg-red-50"
+                  disabled={d.employee_count > 0}
+                  onClick={() => setDeleteTarget(d)}
+                  className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-lg border border-red-200 text-red-700 hover:bg-red-50 disabled:opacity-50 disabled:hover:bg-transparent"
+                  title={d.employee_count > 0 ? "Нельзя удалить: в отделе есть сотрудники" : "Удалить отдел"}
                 >
                   <Trash2 size={14} /> Удалить
                 </button>
@@ -208,14 +256,17 @@ export default function Departments() {
         ))}
       </div>
       <div className="bg-white rounded-xl border border-gray-200 px-4 py-3 flex items-center justify-between text-sm">
-        <button
-          type="button"
-          disabled={page <= 1}
-          onClick={() => setPage((p) => Math.max(1, p - 1))}
-          className="px-3 py-1.5 rounded-lg border border-gray-300 disabled:opacity-40"
-        >
-          Назад
-        </button>
+        {page > 1 ? (
+          <button
+            type="button"
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            className="px-3 py-1.5 rounded-lg border border-gray-300"
+          >
+            Назад
+          </button>
+        ) : (
+          <div />
+        )}
         <span className="text-gray-600">
           Страница {page} из {Math.max(1, Math.ceil(total / pageSize))} · всего {total}
         </span>
@@ -228,6 +279,64 @@ export default function Departments() {
           Вперёд
         </button>
       </div>
+      <Dialog open={renameTarget != null} onOpenChange={(open) => !open && setRenameTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Переименование отдела</DialogTitle>
+            <DialogDescription>Введите новое название отдела.</DialogDescription>
+          </DialogHeader>
+          <input
+            className="w-full border rounded-xl px-3 py-2"
+            value={renameName}
+            onChange={(e) => setRenameName(e.target.value)}
+            placeholder="Название отдела"
+          />
+          <DialogFooter>
+            <button
+              type="button"
+              className="px-4 py-2 rounded-xl border border-gray-300"
+              onClick={() => setRenameTarget(null)}
+            >
+              Отмена
+            </button>
+            <button
+              type="button"
+              disabled={renameBusy || !renameName.trim()}
+              className="px-4 py-2 rounded-xl bg-[#0052FF] text-white disabled:opacity-50"
+              onClick={() => void renameDept()}
+            >
+              {renameBusy ? "Сохранение..." : "Сохранить"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={deleteTarget != null} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Удаление отдела</DialogTitle>
+            <DialogDescription>
+              Подтвердите удаление отдела {deleteTarget ? `«${deleteTarget.name}»` : ""}.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <button
+              type="button"
+              className="px-4 py-2 rounded-xl border border-gray-300"
+              onClick={() => setDeleteTarget(null)}
+            >
+              Отмена
+            </button>
+            <button
+              type="button"
+              disabled={deleteBusy}
+              className="px-4 py-2 rounded-xl bg-red-600 text-white disabled:opacity-50"
+              onClick={() => void deleteDept()}
+            >
+              {deleteBusy ? "Удаление..." : "Удалить"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

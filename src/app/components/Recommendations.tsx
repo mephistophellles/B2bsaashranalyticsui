@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { Lightbulb, CheckCircle2, X } from "lucide-react";
 import { apiFetch, parseErrorMessage } from "@/api/client";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 
 type Rec = {
   id: number;
@@ -75,6 +76,9 @@ export default function Recommendations() {
 
   return (
     <div className="p-6 space-y-6">
+      <div className="rounded-2xl border border-amber-100 bg-gradient-to-r from-amber-50 to-orange-50 px-4 py-3 text-sm text-amber-900">
+        Подсказки к действиям: фильтруйте рекомендации и фиксируйте выполнение.
+      </div>
       <div className="flex items-center gap-3">
         <div className="w-12 h-12 rounded-2xl bg-amber-50 flex items-center justify-center shadow-sm">
           <Lightbulb className="text-amber-600" size={28} />
@@ -82,13 +86,17 @@ export default function Recommendations() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Рекомендации</h1>
           <p className="text-gray-600 text-sm">Правила и ML; отметьте выполнение. Карточку можно открыть целиком.</p>
+          <p className="text-xs text-gray-500 mt-1">
+            Сейчас используется гибридный подход: правила на актуальных данных + опциональное ML-обучение
+            (LightGBM) после накопления достаточного объема наблюдений.
+          </p>
         </div>
       </div>
-      <div className="bg-white rounded-xl border border-gray-200 p-4 flex flex-wrap gap-3 items-end">
+      <div className="bg-white rounded-xl border border-gray-200 p-6 flex flex-wrap gap-5 items-end">
         <label className="text-sm text-gray-600">
           Поиск
           <input
-            className="mt-1 border rounded-xl px-3 py-2 w-64"
+            className="mt-2 h-11 border rounded-xl px-3 w-72"
             placeholder="Название или текст"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -96,28 +104,36 @@ export default function Recommendations() {
         </label>
         <label className="text-sm text-gray-600">
           Статус
-          <select
-            className="mt-1 border rounded-xl px-3 py-2"
+          <Select
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
+            onValueChange={setStatusFilter}
           >
-            <option value="all">Все</option>
-            <option value="Новая">Новая</option>
-            <option value="Выполнено">Выполнено</option>
-          </select>
+            <SelectTrigger className="mt-2 h-11 min-w-48 rounded-xl border-gray-300 bg-white">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Все</SelectItem>
+              <SelectItem value="Новая">Новая</SelectItem>
+              <SelectItem value="Выполнено">Выполнено</SelectItem>
+            </SelectContent>
+          </Select>
         </label>
         <label className="text-sm text-gray-600">
           Приоритет
-          <select
-            className="mt-1 border rounded-xl px-3 py-2"
+          <Select
             value={priorityFilter}
-            onChange={(e) => setPriorityFilter(e.target.value)}
+            onValueChange={setPriorityFilter}
           >
-            <option value="all">Все</option>
-            <option value="high">high</option>
-            <option value="medium">medium</option>
-            <option value="low">low</option>
-          </select>
+            <SelectTrigger className="mt-2 h-11 min-w-48 rounded-xl border-gray-300 bg-white">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Все</SelectItem>
+              <SelectItem value="high">high</SelectItem>
+              <SelectItem value="medium">medium</SelectItem>
+              <SelectItem value="low">low</SelectItem>
+            </SelectContent>
+          </Select>
         </label>
       </div>
       {err && (

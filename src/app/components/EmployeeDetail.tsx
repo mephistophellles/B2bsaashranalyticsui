@@ -2,6 +2,15 @@ import { Fragment, useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { ArrowLeft, ChevronDown, ChevronRight, Trash2 } from "lucide-react";
 import { apiFetch, parseErrorMessage } from "@/api/client";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "./ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 
 type SurveyRow = {
   id: number;
@@ -63,6 +72,8 @@ export default function EmployeeDetail() {
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [deleteErr, setDeleteErr] = useState<string | null>(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteBusy, setDeleteBusy] = useState(false);
   const [expandedSurveyId, setExpandedSurveyId] = useState<number | null>(null);
   const [blocks, setBlocks] = useState<BlockMetric[]>([]);
   const [recommendedActions, setRecommendedActions] = useState<Recommendation[]>([]);
@@ -146,13 +157,17 @@ export default function EmployeeDetail() {
   }
 
   async function remove() {
-    if (!id || !confirm("Удалить сотрудника? Допустимо только без опросов и без учётной записи.")) return;
+    if (!id) return;
+    setDeleteBusy(true);
     setDeleteErr(null);
     const res = await apiFetch(`/employees/${id}`, { method: "DELETE" });
     if (!res.ok) {
       setDeleteErr(await parseErrorMessage(res));
+      setDeleteBusy(false);
       return;
     }
+    setDeleteOpen(false);
+    setDeleteBusy(false);
     navigate("/employees", { replace: true });
   }
 
@@ -192,7 +207,7 @@ export default function EmployeeDetail() {
                     ? "Отвяжите учётную запись пользователя от этого сотрудника"
                     : "Удаление недоступно"
             }
-            onClick={() => void remove()}
+            onClick={() => setDeleteOpen(true)}
             className="inline-flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium text-red-700 border border-red-200 hover:bg-red-50 disabled:opacity-45 disabled:cursor-not-allowed disabled:hover:bg-transparent"
           >
             <Trash2 size={16} /> Удалить
@@ -285,19 +300,21 @@ export default function EmployeeDetail() {
           >
             <h2 className="text-lg font-semibold">Отдел</h2>
             {msg && <p className="text-sm text-gray-700">{msg}</p>}
-            <select
-              className="w-full border rounded-xl px-3 py-2"
-              value={editDeptId}
-              onChange={(e) => setEditDeptId(Number(e.target.value))}
-              required
+            <Select
+              value={editDeptId === "" ? "" : String(editDeptId)}
+              onValueChange={(value) => setEditDeptId(value === "" ? "" : Number(value))}
             >
-              <option value="">—</option>
-              {depts.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.name}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger className="w-full rounded-xl border-gray-300 bg-white">
+                <SelectValue placeholder="—" />
+              </SelectTrigger>
+              <SelectContent>
+                {depts.map((d) => (
+                  <SelectItem key={d.id} value={String(d.id)}>
+                    {d.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <button
               type="submit"
               disabled={saving || editDeptId === ""}
@@ -326,19 +343,21 @@ export default function EmployeeDetail() {
             </label>
             <label className="text-sm block">
               Отдел
-              <select
-                className="mt-1 w-full border rounded-xl px-3 py-2"
-                value={editDeptId}
-                onChange={(e) => setEditDeptId(Number(e.target.value))}
-                required
+              <Select
+                value={editDeptId === "" ? "" : String(editDeptId)}
+                onValueChange={(value) => setEditDeptId(value === "" ? "" : Number(value))}
               >
-                <option value="">—</option>
-                {depts.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.name}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger className="mt-1 w-full rounded-xl border-gray-300 bg-white">
+                  <SelectValue placeholder="—" />
+                </SelectTrigger>
+                <SelectContent>
+                  {depts.map((d) => (
+                    <SelectItem key={d.id} value={String(d.id)}>
+                      {d.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </label>
             <label className="text-sm block">
               Должность
@@ -433,6 +452,33 @@ export default function EmployeeDetail() {
           </div>
         )}
       </div>
+      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Удаление сотрудника</DialogTitle>
+            <DialogDescription>
+              Подтвердите удаление карточки сотрудника. Действие возможно только без опросов и без привязанной учётной записи.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <button
+              type="button"
+              className="px-4 py-2 rounded-xl border border-gray-300"
+              onClick={() => setDeleteOpen(false)}
+            >
+              Отмена
+            </button>
+            <button
+              type="button"
+              disabled={deleteBusy}
+              className="px-4 py-2 rounded-xl bg-red-600 text-white disabled:opacity-50"
+              onClick={() => void remove()}
+            >
+              {deleteBusy ? "Удаление..." : "Удалить"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

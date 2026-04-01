@@ -68,11 +68,17 @@ def list_departments_page(
 
     reverse = sort_order == "desc"
     if sort_by == "employee_count":
-        rows.sort(key=lambda x: x.employee_count, reverse=reverse)
+        rows.sort(
+            key=lambda x: (x.employee_count, x.avg_essi, x.name.lower(), x.id),
+            reverse=reverse,
+        )
     elif sort_by == "avg_essi":
-        rows.sort(key=lambda x: x.avg_essi, reverse=reverse)
+        rows.sort(
+            key=lambda x: (x.avg_essi, x.employee_count, x.name.lower(), x.id),
+            reverse=reverse,
+        )
     else:
-        rows.sort(key=lambda x: x.name.lower(), reverse=reverse)
+        rows.sort(key=lambda x: (x.name.lower(), x.id), reverse=reverse)
 
     total = len(rows)
     items = rows[offset : offset + limit]

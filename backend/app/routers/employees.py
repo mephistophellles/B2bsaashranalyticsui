@@ -42,7 +42,9 @@ def _build_list_item(db: Session, emp: Employee) -> EmployeeListItem:
         .first()
     )
     engagement = essi - 5 if surv else 0.0
-    productivity = min(100.0, essi + 10.0)
+    productivity = min(100.0, essi + 10.0) if idx else 0.0
+    trend = employee_trend(db, emp.id) if idx else "no_data"
+    status = status_from_essi(essi) if idx else "Новый сотрудник"
     jd = format_hire_date_ru(emp.hire_date)
     return EmployeeListItem(
         id=emp.id,
@@ -55,8 +57,8 @@ def _build_list_item(db: Session, emp: Employee) -> EmployeeListItem:
         essi=round(essi, 0),
         engagement=round(engagement, 0),
         productivity=round(productivity, 0),
-        trend=employee_trend(db, emp.id),
-        status=status_from_essi(essi),
+        trend=trend,
+        status=status,
         join_date=jd,
     )
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import {
   TrendingUp,
@@ -87,6 +87,15 @@ export default function Dashboard() {
   const [error, setError] = useState<string | null>(null);
   const [months, setMonths] = useState(6);
   const [events, setEvents] = useState<EventPoint[]>([]);
+  const [periodOpen, setPeriodOpen] = useState(false);
+  const periodRef = useRef<HTMLDivElement>(null);
+
+  function renderTrend(trend: string) {
+    if (trend === "up") return <TrendingUp className="text-green-600" size={18} />;
+    if (trend === "down") return <TrendingDown className="text-red-600" size={18} />;
+    if (trend === "stable") return <div className="w-4 h-0.5 bg-gray-400" title="Стабильно" />;
+    return <span className="text-xs text-gray-400">нет данных</span>;
+  }
 
   useEffect(() => {
     void (async () => {
@@ -107,6 +116,16 @@ export default function Dashboard() {
       }
     })();
   }, [months]);
+
+  useEffect(() => {
+    const onDoc = (event: MouseEvent) => {
+      if (!periodRef.current?.contains(event.target as Node)) {
+        setPeriodOpen(false);
+      }
+    };
+    document.addEventListener("click", onDoc);
+    return () => document.removeEventListener("click", onDoc);
+  }, []);
 
   if (error) {
     return <div className="p-6 text-red-600">{error}</div>;
@@ -133,21 +152,37 @@ export default function Dashboard() {
 
   return (
     <div className="p-6 space-y-6">
+      <div className="rounded-2xl border border-blue-100 bg-gradient-to-r from-blue-50 to-indigo-50 px-4 py-3 text-sm text-blue-900">
+        Единая панель устойчивости: следите за индексом ESSI, рисками и вкладом отделов.
+      </div>
       <div className="flex flex-wrap gap-2 items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">Главная</h1>
-        <label className="text-sm text-gray-600 flex items-center gap-2">
-          Период ESSI
-          <select
-            className="border rounded-lg px-2 py-1 bg-white"
-            value={months}
-            onChange={(e) => setMonths(Number(e.target.value))}
+        <div className="relative" ref={periodRef}>
+          <button
+            type="button"
+            className="text-sm text-gray-700 flex items-center gap-2 border border-gray-300 rounded-xl px-3 py-2 bg-white hover:border-[#0052FF]"
+            onClick={() => setPeriodOpen((x) => !x)}
           >
-            <option value={3}>3 мес.</option>
-            <option value={6}>6 мес.</option>
-            <option value={12}>12 мес.</option>
-            <option value={24}>24 мес.</option>
-          </select>
-        </label>
+            Период ESSI: <span className="font-medium">{months} мес.</span>
+          </button>
+          {periodOpen && (
+            <div className="absolute right-0 mt-1 w-36 rounded-xl border border-gray-200 bg-white shadow-lg z-20 py-1">
+              {[3, 6, 12, 24].map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 ${months === m ? "text-[#0052FF] font-medium" : "text-gray-700"}`}
+                  onClick={() => {
+                    setMonths(m);
+                    setPeriodOpen(false);
+                  }}
+                >
+                  {m} мес.
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
       {sparseData && (
         <div className="rounded-2xl border border-amber-200 bg-amber-50/90 px-4 py-3 text-sm text-amber-950 shadow-sm">
@@ -388,6 +423,7 @@ export default function Dashboard() {
                 <XAxis dataKey="month" stroke="#6B7280" fontSize={12} />
                 <YAxis stroke="#6B7280" fontSize={12} />
                 <Tooltip
+                  cursor={{ fill: "transparent" }}
                   contentStyle={{
                     backgroundColor: "white",
                     border: "1px solid #E5E7EB",
@@ -469,6 +505,7 @@ export default function Dashboard() {
                 <XAxis dataKey="department" stroke="#6B7280" fontSize={12} />
                 <YAxis stroke="#6B7280" fontSize={12} />
                 <Tooltip
+                  cursor={{ fill: "transparent" }}
                   contentStyle={{
                     backgroundColor: "white",
                     border: "1px solid #E5E7EB",
@@ -478,6 +515,7 @@ export default function Dashboard() {
                 <Bar
                   dataKey="essi"
                   fill="#0052FF"
+                  activeBar={{ fill: "#4D7CFF" }}
                   radius={[8, 8, 0, 0]}
                   cursor="pointer"
                   onClick={(barData) => {
@@ -545,17 +583,7 @@ export default function Dashboard() {
                       </span>
                     </td>
                     <td className="py-3 px-4 text-sm text-gray-600">{employee.status}</td>
-                    <td className="py-3 px-4">
-                      {employee.trend === "up" && (
-                        <TrendingUp className="text-green-600" size={18} />
-                      )}
-                      {employee.trend === "down" && (
-                        <TrendingDown className="text-red-600" size={18} />
-                      )}
-                      {employee.trend === "stable" && (
-                        <div className="w-4 h-0.5 bg-gray-400" />
-                      )}
-                    </td>
+                    <td className="py-3 px-4">{renderTrend(employee.trend)}</td>
                   </tr>
                 ))}
               </tbody>
