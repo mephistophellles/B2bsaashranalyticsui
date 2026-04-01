@@ -1,10 +1,25 @@
-"""Rule-based recommendations + optional LightGBM hook."""
+"""Recommendations orchestration: ML-backed when available, rule-based fallback otherwise."""
 
-from datetime import datetime
+from dataclasses import dataclass
+from datetime import UTC, datetime
 
 from sqlalchemy.orm import Session
 
+from app.ml.predict import run_inference
+from app.ml.recommendations import aggregate_department_risks, build_recommendation_drafts
 from app.models import Department, Employee, IndexRecord, Recommendation
+
+
+@dataclass(frozen=True, slots=True)
+class RecommendationGenerationResult:
+    created_count: int
+    strategy: str  # ml | rules
+    model_version: str | None
+    artifact_path: str | None
+    fallback_used: bool
+    fallback_reason: str | None
+    resolution_source: str
+    reason: str
 
 
 def _detail_text_high(
@@ -64,9 +79,7 @@ def _employee_text_medium(dept_name: str, avg: float) -> str:
 
 def generate_rule_based(db: Session) -> int:
     """Обновить рекомендации по правилам; строки «Выполнено» не удаляем."""
-    db.query(Recommendation).filter(Recommendation.status != "Выполнено").delete(
-        synchronize_session=False
-    )
+    _clear_active_recommendations(db)
     created = 0
     departments = db.query(Department).all()
     for dept in departments:
@@ -118,6 +131,76 @@ def generate_rule_based(db: Session) -> int:
     return created
 
 
+def generate_recommendations(
+    db: Session,
+    *,
+    artifact_root: str | None = None,
+) -> int:
+    return generate_recommendations_with_status(db, artifact_root=artifact_root).created_count
+
+
+def generate_recommendations_with_status(
+    db: Session,
+    *,
+    artifact_root: str | None = None,
+) -> RecommendationGenerationResult:
+    """
+    Try ML-backed recommendations first.
+    If artifact is missing, broken, or inference fails, fallback to existing rule-based generation.
+    """
+    inference = run_inference(db, artifact_root=artifact_root)
+    if inference.status == "success" and inference.employee_results:
+        departments = {dept.id: dept.name for dept in db.query(Department).all()}
+        summaries = aggregate_department_risks(inference.employee_results, departments)
+        if summaries:
+            _clear_active_recommendations(db)
+            for draft in build_recommendation_drafts(
+                summaries,
+                model_version=inference.model_version or "ml-unknown",
+            ):
+                db.add(
+                    Recommendation(
+                        department_id=draft.department_id,
+                        title=draft.title,
+                        text=draft.text,
+                        text_employee=draft.text_employee,
+                        priority=draft.priority,
+                        status="Новая",
+                        model_version=draft.model_version,
+                    )
+                )
+            db.flush()
+            _dedup_active_recommendations(db)
+            db.commit()
+            return RecommendationGenerationResult(
+                created_count=len(summaries),
+                strategy="ml",
+                model_version=inference.model_version,
+                artifact_path=inference.artifact_path,
+                fallback_used=False,
+                fallback_reason=None,
+                resolution_source=inference.resolution_source,
+                reason="ml-backed recommendations generated",
+            )
+    created = generate_rule_based(db)
+    return RecommendationGenerationResult(
+        created_count=created,
+        strategy="rules",
+        model_version="rules-v2",
+        artifact_path=inference.artifact_path,
+        fallback_used=True,
+        fallback_reason=inference.reason,
+        resolution_source=inference.resolution_source,
+        reason="rule-based recommendations generated via fallback",
+    )
+
+
+def _clear_active_recommendations(db: Session) -> None:
+    db.query(Recommendation).filter(Recommendation.status != "Выполнено").delete(
+        synchronize_session=False
+    )
+
+
 def _dedup_active_recommendations(db: Session) -> None:
     """Оставляем одну активную запись на (department_id, priority, model_version)."""
     rows = (
@@ -167,7 +250,7 @@ def maybe_train_lightgbm_and_log(db: Session) -> str | None:
     model.fit(X_train, y_train)
 
     mlflow.set_tracking_uri(settings.mlflow_tracking_uri)
-    with mlflow.start_run(run_name=f"lgbm-{datetime.utcnow().isoformat()}"):
+    with mlflow.start_run(run_name=f"lgbm-{datetime.now(UTC).isoformat()}"):
         mlflow.log_param("n_estimators", 20)
         mlflow.lightgbm.log_model(model, artifact_path="model")
         run = mlflow.active_run()

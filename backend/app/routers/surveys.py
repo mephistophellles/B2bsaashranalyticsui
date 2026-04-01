@@ -26,7 +26,7 @@ from app.schemas import (
 )
 from app.services.campaign_survey import CampaignSurveyValidationError, validate_campaign_survey_row
 from app.services.essi import recompute_indices, validate_block_sum
-from app.services.recommendations_engine import generate_rule_based, maybe_train_lightgbm_and_log
+from app.services.recommendations_engine import generate_recommendations
 from app.tasks import parse_and_validate_survey_import_file, process_survey_import
 
 router = APIRouter(prefix="/surveys", tags=["surveys"])
@@ -163,8 +163,7 @@ def submit_survey(
     )
     db.commit()
     recompute_indices(db, date.today())
-    generate_rule_based(db)
-    maybe_train_lightgbm_and_log(db)
+    generate_recommendations(db)
     audit(db, user, "survey_submit", "survey", {"employee_id": eid, "campaign_id": camp_id})
     return {"status": "ok"}
 
