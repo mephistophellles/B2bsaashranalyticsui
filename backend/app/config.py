@@ -14,6 +14,11 @@ def _default_sqlite_url() -> str:
     return f"sqlite:///{db_path.as_posix()}"
 
 
+def _default_ml_artifact_dir() -> str:
+    backend_dir = Path(__file__).resolve().parent.parent
+    return str((backend_dir / "ml_artifacts").resolve())
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
@@ -30,6 +35,7 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379/0"
 
     mlflow_tracking_uri: str = "file:./mlruns"
+    ml_artifact_dir: str = Field(default_factory=_default_ml_artifact_dir)
     # ИСУР по методике: сумма 25 ответов (5 блоков × 5), макс. 125 баллов → процент от максимума.
     max_essi_points: float = 125.0
     num_survey_blocks: int = 5

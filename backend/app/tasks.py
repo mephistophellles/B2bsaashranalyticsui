@@ -15,7 +15,7 @@ from app.services.campaign_survey import (
     validate_campaign_survey_row,
 )
 from app.services.essi import block_percentage, recompute_indices, validate_block_sum
-from app.services.recommendations_engine import generate_rule_based, maybe_train_lightgbm_and_log
+from app.services.recommendations_engine import generate_recommendations
 
 log = logging.getLogger(__name__)
 
@@ -178,8 +178,7 @@ def process_survey_import(
         db.commit()
 
         recompute_indices(db, date.today())
-        generate_rule_based(db)
-        maybe_train_lightgbm_and_log(db)
+        generate_recommendations(db)
 
         job.status = JobStatus.success
         job.detail = f"Imported {len(df)} rows"
@@ -318,8 +317,7 @@ def recalculate_indices_task() -> None:
     db = _db()
     try:
         recompute_indices(db, date.today())
-        generate_rule_based(db)
-        maybe_train_lightgbm_and_log(db)
+        generate_recommendations(db)
         db.commit()
         log.info("recalculate_indices_task finished")
     except Exception:

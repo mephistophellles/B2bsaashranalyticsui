@@ -396,6 +396,101 @@ class UserAdminResetPassword(BaseModel):
     new_password: str = Field(min_length=6)
 
 
+class MLTrainingMetricsOut(BaseModel):
+    mae: float | None = None
+    rmse: float | None = None
+    train_rows: int
+    validation_rows: int
+    validation_note: str | None = None
+    warnings: list[str] | None = None
+    validation_risk_distribution: dict[str, int] | None = None
+
+
+class MLTrainRequest(BaseModel):
+    model_type: str = Field(default="linear_numpy")
+    min_pairs: int | None = Field(default=None, ge=1)
+    min_unique_employees: int | None = Field(default=None, ge=1)
+    artifact_dir: str | None = None
+    note: str | None = None
+
+
+class MLTrainResultOut(BaseModel):
+    status: str
+    reason: str
+    model_type: str
+    model_version: str | None = None
+    artifact_path: str | None = None
+    train_rows: int
+    unique_employees: int
+    metrics: MLTrainingMetricsOut
+
+
+class MLModelArtifactOut(BaseModel):
+    model_version: str | None = None
+    model_type: str | None = None
+    trained_at: str | None = None
+    artifact_path: str
+    train_rows: int | None = None
+    unique_employees: int | None = None
+    metrics: MLTrainingMetricsOut | None = None
+    is_active: bool
+    load_status: str
+    load_reason: str | None = None
+
+
+class MLPromoteRequest(BaseModel):
+    model_version: str = Field(min_length=1)
+    note: str | None = None
+    artifact_dir: str | None = None
+
+
+class MLPromoteResultOut(BaseModel):
+    status: str
+    active_model_version: str | None = None
+    previous_model_version: str | None = None
+    artifact_path: str | None = None
+    promoted_at: str | None = None
+    note: str | None = None
+
+
+class MLRefreshRequest(BaseModel):
+    artifact_dir: str | None = None
+    note: str | None = None
+
+
+class MLRunOut(BaseModel):
+    run_id: str
+    operation_type: str
+    started_at: str
+    finished_at: str | None = None
+    status: str
+    reason: str
+    triggered_by: str
+    requested_model_type: str | None = None
+    resulting_model_version: str | None = None
+    artifact_path: str | None = None
+    summary: dict | None = None
+    note: str | None = None
+    error: str | None = None
+
+
+class MLStatusOut(BaseModel):
+    artifact_exists: bool
+    active_model_version: str | None = None
+    model_type: str | None = None
+    trained_at: str | None = None
+    artifact_path: str | None = None
+    train_rows: int | None = None
+    unique_employees: int | None = None
+    metrics: MLTrainingMetricsOut | None = None
+    resolution_source: str = "none"
+    manifest_path: str | None = None
+    last_status: str
+    last_reason: str
+    last_train_run: MLRunOut | None = None
+    last_refresh_run: MLRunOut | None = None
+
+
 class ManagementEventBase(BaseModel):
     event_date: date
     event_type: str
