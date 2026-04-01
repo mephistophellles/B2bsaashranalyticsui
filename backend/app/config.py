@@ -17,7 +17,7 @@ def _default_sqlite_url() -> str:
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
-    app_name: str = "Потенциал API"
+    app_name: str = "ПОТЕНКОР API"
     debug: bool = False
     secret_key: str = INSECURE_DEFAULT_SECRET_KEY
     algorithm: str = "HS256"

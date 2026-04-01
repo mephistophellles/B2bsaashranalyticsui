@@ -179,10 +179,10 @@ export default function Recommendations() {
                     type="button"
                     disabled={busyId === r.id}
                     onClick={(e) => void markDone(r.id, e)}
-                    className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-xl bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
+                    className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-xl bg-[#0052FF] text-white hover:bg-[#0047db] disabled:opacity-50"
                   >
                     <CheckCircle2 size={14} />
-                    {busyId === r.id ? "…" : "Выполнено"}
+                    {busyId === r.id ? "…" : "Отметить выполненной"}
                   </button>
                 )}
               </div>
@@ -239,9 +239,9 @@ export default function Recommendations() {
                   type="button"
                   disabled={busyId === selected.id}
                   onClick={(e) => void markDone(selected.id, e)}
-                  className="px-4 py-2 rounded-xl bg-green-600 text-white text-sm font-medium hover:bg-green-700 disabled:opacity-50"
+                  className="px-4 py-2 rounded-xl bg-[#0052FF] text-white text-sm font-medium hover:bg-[#0047db] disabled:opacity-50"
                 >
-                  {busyId === selected.id ? "…" : "Отметить выполненным"}
+                  {busyId === selected.id ? "…" : "Отметить выполненной"}
                 </button>
               )}
             </div>

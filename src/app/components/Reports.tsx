@@ -367,7 +367,7 @@ export default function Reports() {
               {importBusy ? "Обработка файла…" : "Выберите файл"}
             </label>
             <span className="text-sm text-gray-500">
-              Форматы: CSV, XLSX, XLS. После выбора файла дождитесь сообщения о завершении импорта.
+              Форматы: CSV, XLSX, XLS. Используйте шаблон импорта и проверьте диапазон score_blockX: 5..25.
             </span>
           </div>
           {importStatus && (
@@ -411,10 +411,10 @@ export default function Reports() {
             )}
             <button
               type="button"
-              onClick={() => void downloadWithAuth("/reports/demo-template", "demo_hr_case_template.xlsx")}
+              onClick={() => void downloadWithAuth("/reports/demo-template", "survey_import_template.xlsx")}
               className="px-3 py-1.5 text-sm rounded-lg border border-emerald-600 text-emerald-700 font-medium hover:bg-emerald-50"
             >
-              Демо-кейс Excel
+              Шаблон импорта Excel
             </button>
           </div>
           {reportStatus && (

@@ -411,8 +411,8 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="bg-white rounded-xl border border-gray-200 p-6 lg:col-span-2">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Динамика ESSI</h2>
           {essiData.length === 0 ? (
             <p className="text-sm text-gray-500">Нет данных для выбранного периода.</p>
@@ -462,39 +462,44 @@ export default function Dashboard() {
               </LineChart>
             </ResponsiveContainer>
           )}
-          {events.length > 0 && (
-            <div className="mt-3 space-y-1">
-              {events.slice(0, 3).map((ev) => (
-                <div key={ev.id} className="text-xs text-gray-600" title={ev.description ?? ""}>
-                  <span className="font-medium">{ev.event_date}</span> · {ev.title}
-                </div>
-              ))}
-            </div>
-          )}
         </div>
 
         <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Блоки: % от максимума по методике</h2>
-          {data.block_percentages.length === 0 ? (
-            <p className="text-sm text-gray-500">Пока недостаточно данных.</p>
-          ) : (
-            <div className="space-y-3">
-              {data.block_percentages.map((block) => (
-                <div key={block.block_index}>
-                  <div className="flex items-center justify-between gap-3 text-sm mb-1">
-                    <span className="text-gray-700">{block.title}</span>
-                    <span className="font-semibold text-gray-900">{block.value}%</span>
-                  </div>
-                  <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
-                    <div className="h-full rounded-full bg-[#0052FF]" style={{ width: `${block.value}%` }} />
-                  </div>
-                </div>
-              ))}
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Ключевые сигналы</h2>
+          <div className="space-y-3 text-sm">
+            <div className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
+              <span className="text-gray-600">Изменение ESSI</span>
+              <span className={`font-semibold ${data.essi_delta_pct >= 0 ? "text-green-600" : "text-red-600"}`}>
+                {data.essi_delta_pct > 0 ? "+" : ""}
+                {data.essi_delta_pct}%
+              </span>
             </div>
-          )}
+            <div className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
+              <span className="text-gray-600">Сотрудники в риске</span>
+              <span className="font-semibold text-gray-900">{data.risk_at_risk_total}</span>
+            </div>
+            <div className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
+              <span className="text-gray-600">События за период</span>
+              <span className="font-semibold text-gray-900">{events.length}</span>
+            </div>
+          </div>
+          <div className="mt-4">
+            <div className="text-xs uppercase tracking-wide text-gray-500 mb-2">Последние события</div>
+            {events.length === 0 ? (
+              <p className="text-sm text-gray-500">Нет событий за выбранный период.</p>
+            ) : (
+              <div className="space-y-2">
+                {events.slice(0, 3).map((ev) => (
+                  <div key={ev.id} className="text-xs text-gray-600" title={ev.description ?? ""}>
+                    <span className="font-medium">{ev.event_date}</span> · {ev.title}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-200 p-6 lg:col-span-2">
+        <div className="bg-white rounded-xl border border-gray-200 p-6 lg:col-span-3">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Сравнение отделов</h2>
           {departmentData.length === 0 ? (
             <p className="text-sm text-gray-500">Нет данных по отделам.</p>

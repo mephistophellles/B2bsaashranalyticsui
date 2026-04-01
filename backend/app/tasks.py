@@ -278,10 +278,28 @@ def run_report_export(report_id: int) -> None:
             from app.services.dashboard import organization_block_percentages
             from app.services.essi import organization_avg_essi
             from reportlab.lib.pagesizes import A4
+            from reportlab.pdfbase import pdfmetrics
+            from reportlab.pdfbase.ttfonts import TTFont
             from reportlab.pdfgen import canvas
 
             c = canvas.Canvas(path_pdf, pagesize=A4)
-            c.drawString(100, 800, "Потенциал — сводный отчёт")
+            font_name = "PotenkorCyr"
+            font_candidates = [
+                os.getenv("REPORT_FONT_PATH"),
+                r"C:\Windows\Fonts\arial.ttf",
+                "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+                "/usr/share/fonts/dejavu/DejaVuSans.ttf",
+            ]
+            font_path = next((p for p in font_candidates if p and os.path.isfile(p)), None)
+            if not font_path:
+                raise RuntimeError(
+                    "Не найден шрифт с поддержкой кириллицы для PDF. "
+                    "Укажите REPORT_FONT_PATH или установите DejaVuSans/Arial."
+                )
+            if font_name not in pdfmetrics.getRegisteredFontNames():
+                pdfmetrics.registerFont(TTFont(font_name, font_path))
+            c.setFont(font_name, 11)
+            c.drawString(100, 800, "ПОТЕНКОР — сводный отчёт")
             c.drawString(
                 100,
                 780,

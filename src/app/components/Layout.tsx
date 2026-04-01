@@ -66,7 +66,7 @@ export default function Layout() {
       <aside className="w-64 bg-white border-r border-gray-200 flex flex-col">
         <div className="h-16 flex items-center px-6 border-b border-gray-200">
           <h1 className="text-2xl font-bold bg-gradient-to-r from-[#0052FF] to-[#4D7CFF] bg-clip-text text-transparent">
-            ПОТЕНЦИАЛ
+            ПОТЕНКОР
           </h1>
         </div>
 

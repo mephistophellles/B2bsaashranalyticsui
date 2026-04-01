@@ -1,4 +1,4 @@
-# Потенциал — backend (FastAPI)
+# ПОТЕНКОР — backend (FastAPI)
 
 ## Локально
 
@@ -93,7 +93,7 @@ pip install -r requirements-ml.txt
 
 - `POST /api/reports` с телом `{"kind": "summary"}` — PDF.
 - `{"kind": "summary_excel"}` или `"excel"` — Excel (сводка ESSI).
-- `GET /api/reports/demo-template` — демонстрационный Excel-кейс для HR/руководителя.
+- `GET /api/reports/demo-template` — Excel-шаблон импорта опросов (`employee_id`, `survey_date`, `score_block1..score_block5`).
 - Управленческие события (для точек на графике динамики):
   - `GET /api/reports/events`
   - `POST /api/reports/events`

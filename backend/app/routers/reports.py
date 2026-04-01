@@ -141,41 +141,41 @@ def download_demo_template(
 ):
     rows = [
         {
-            "Шаг": 1,
-            "Роль": "HR",
-            "Действие": "Зафиксировать baseline ESSI и проблемный блок",
-            "Метрика до": "ESSI=58, Блок3=49",
-            "Мера": "План обучения руководителей + корректировка KPI",
-            "Дата события": datetime.utcnow().date().isoformat(),
-            "Ожидаемый эффект": "Рост вовлеченности и снижение доли риска",
+            "employee_id": 1,
+            "survey_date": datetime.utcnow().date().isoformat(),
+            "score_block1": 18,
+            "score_block2": 16,
+            "score_block3": 14,
+            "score_block4": 17,
+            "score_block5": 19,
         },
         {
-            "Шаг": 2,
-            "Роль": "Руководитель",
-            "Действие": "Запустить меры и отметить событие на шкале",
-            "Метрика до": "Зона риска 24%",
-            "Мера": "Регулярные 1:1, пересмотр целей, обратная связь",
-            "Дата события": datetime.utcnow().date().isoformat(),
-            "Ожидаемый эффект": "Переход части сотрудников в стабильную зону",
+            "employee_id": 2,
+            "survey_date": datetime.utcnow().date().isoformat(),
+            "score_block1": 22,
+            "score_block2": 21,
+            "score_block3": 20,
+            "score_block4": 23,
+            "score_block5": 22,
         },
         {
-            "Шаг": 3,
-            "Роль": "HR",
-            "Действие": "Провести повторный замер через 4-8 недель",
-            "Метрика до": "ESSI=58",
-            "Мера": "Сравнение до/после и корректировка плана",
-            "Дата события": datetime.utcnow().date().isoformat(),
-            "Ожидаемый эффект": "ESSI>=65, Блок3>=60",
+            "employee_id": 3,
+            "survey_date": datetime.utcnow().date().isoformat(),
+            "score_block1": 12,
+            "score_block2": 10,
+            "score_block3": 11,
+            "score_block4": 13,
+            "score_block5": 12,
         },
     ]
     tmpdir = os.path.join(tempfile.gettempdir(), "potential_reports")
     os.makedirs(tmpdir, exist_ok=True)
-    filename = f"demo_hr_case_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    filename = f"survey_import_template_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.xlsx"
     path = os.path.join(tmpdir, filename)
     pd.DataFrame(rows).to_excel(path, index=False)
     return FileResponse(
         path,
-        filename="demo_hr_case_template.xlsx",
+        filename="survey_import_template.xlsx",
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
 

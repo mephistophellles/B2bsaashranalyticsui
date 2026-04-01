@@ -44,7 +44,7 @@ export default function Login() {
       >
         <div>
           <h1 className="text-2xl font-bold bg-gradient-to-r from-[#0052FF] to-[#4D7CFF] bg-clip-text text-transparent">
-            ПОТЕНЦИАЛ
+            ПОТЕНКОР
           </h1>
           <p className="text-sm text-gray-500 mt-1">Вход в систему</p>
         </div>
