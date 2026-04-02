@@ -562,6 +562,11 @@ export default function Settings() {
           </p>
         )}
         {user && <ChangePasswordBlock />}
+        <div className="pt-4 border-t border-gray-100">
+          <Link to="/consent" className="text-sm font-medium text-[#0052FF] hover:underline">
+            Открыть согласие на обработку персональных данных
+          </Link>
+        </div>
       </div>
 
       {user?.role === "admin" && (

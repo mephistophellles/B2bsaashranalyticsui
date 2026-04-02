@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { useAuth } from "@/auth/AuthContext";
 
 export default function Login() {
@@ -46,7 +46,11 @@ export default function Login() {
           <h1 className="text-2xl font-bold bg-gradient-to-r from-[#0052FF] to-[#4D7CFF] bg-clip-text text-transparent">
             ПОТЕНКОР
           </h1>
-          <p className="text-sm text-gray-500 mt-1">Вход в систему</p>
+          <p className="text-sm text-gray-500 mt-1">Научно-технологическая HR-платформа (ESSI + причины + риски + рекомендации)</p>
+        </div>
+        <div className="rounded-xl border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-900">
+          Для руководителя: управленческие метрики и обоснованные действия. Для сотрудника: понятная и безопасная
+          диагностика без карательной логики.
         </div>
         {err && (
           <div className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
@@ -81,6 +85,20 @@ export default function Login() {
         </button>
         <p className="text-xs text-gray-400 text-center">
           Демо: manager/manager123 или employee/employee123
+        </p>
+        <p className="text-xs text-center text-gray-500">
+          Входя в систему, вы подтверждаете ознакомление с{" "}
+          <Link to="/legal/consent" className="text-[#0052FF] hover:underline">
+            условиями обработки персональных данных
+          </Link>
+          .
+        </p>
+        <p className="text-xs text-center text-gray-500">
+          Новым пользователям:{" "}
+          <Link to="/home" className="text-[#0052FF] hover:underline">
+            обзор платформы, ESSI и тарифов
+          </Link>
+          .
         </p>
       </form>
     </div>

@@ -71,6 +71,10 @@ export default function EmployeeHome() {
 
   return (
     <div className="p-6 space-y-8 max-w-2xl">
+      <div className="rounded-2xl border border-green-100 bg-gradient-to-r from-green-50 to-emerald-50 px-4 py-3 text-sm text-green-900">
+        Эта зона создана для сотрудника: спокойно пройти опрос, понять личную динамику и получить поддержку. Данные
+        используются для улучшения условий работы, а не для наказания.
+      </div>
       <div>
         <h1 className="text-2xl font-semibold">Здравствуйте, {data.name}</h1>
         <p className="text-gray-600">{data.position}</p>
@@ -80,6 +84,9 @@ export default function EmployeeHome() {
       <div className="rounded-2xl border border-gray-200 bg-white p-8 max-w-sm text-center shadow-sm">
         <div className="text-sm text-gray-500 mb-2">Ваш ESSI</div>
         <div className="text-5xl font-bold text-[#0052FF]">{Math.round(data.essi)}</div>
+        <p className="text-xs text-gray-500 mt-2">
+          ESSI показывает текущую устойчивость рабочего состояния по 5 блокам методики.
+        </p>
       </div>
 
       <div className="flex flex-wrap gap-3">

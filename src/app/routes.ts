@@ -10,6 +10,9 @@ import DepartmentDetail from "./components/DepartmentDetail";
 import Reports from "./components/Reports";
 import Settings from "./components/Settings";
 import Login from "./components/Login";
+import Consent from "./components/Consent";
+import PublicConsent from "./components/PublicConsent";
+import Landing from "./components/Landing";
 import ProtectedLayout from "./components/ProtectedLayout";
 import RequireManager from "./components/RequireManager";
 import Survey from "./components/Survey";
@@ -18,6 +21,8 @@ import MyRecommendations from "./components/MyRecommendations";
 import MySurveyDetail from "./components/MySurveyDetail";
 export const router = createBrowserRouter([
   { path: "/login", Component: Login },
+  { path: "/home", Component: Landing },
+  { path: "/legal/consent", Component: PublicConsent },
   {
     path: "/",
     Component: ProtectedLayout,
@@ -30,6 +35,7 @@ export const router = createBrowserRouter([
           { path: "my-surveys/:id", Component: MySurveyDetail },
           { path: "my-recommendations", Component: MyRecommendations },
           { path: "my-recommendations/:id", Component: MyRecommendations },
+          { path: "consent", Component: Consent },
           {
             Component: RequireManager,
             children: [

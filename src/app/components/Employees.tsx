@@ -7,6 +7,7 @@ import {
   Filter,
   Download,
   Mail,
+  Users,
 } from "lucide-react";
 import { apiFetch, parseErrorMessage } from "@/api/client";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
@@ -203,11 +204,17 @@ export default function Employees() {
       <div className="mb-4 rounded-2xl border border-blue-100 bg-gradient-to-r from-blue-50 to-indigo-50 px-4 py-3 text-sm text-blue-900">
         Команда и метрики по сотрудникам: добавляйте новых сотрудников и отслеживайте динамику ESSI.
       </div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Сотрудники</h1>
-        <p className="text-gray-600">
-          Управление и мониторинг продуктивности и вовлеченности сотрудников
-        </p>
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Сотрудники</h1>
+          <p className="text-gray-600">
+            Управление и мониторинг продуктивности и вовлеченности сотрудников
+          </p>
+        </div>
+        <div className="hidden sm:flex items-center gap-2 rounded-2xl border border-blue-100 bg-blue-50 px-3 py-2">
+          <Users className="text-[#0052FF]" size={16} />
+          <span className="text-xs font-medium text-blue-900">Состав и динамика команды</span>
+        </div>
       </div>
 
       <form

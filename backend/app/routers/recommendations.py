@@ -9,6 +9,18 @@ from app.schemas import RecommendationOut, RecommendationPatch
 router = APIRouter(prefix="/recommendations", tags=["recommendations"])
 
 
+def _explainability_fields(r: Recommendation) -> tuple[str, str, str]:
+    source = "ml" if (r.model_version and r.model_version != "rules-v2") else "rules"
+    sentences = [part.strip() for part in r.text.replace("\n", " ").split(".") if part.strip()]
+    rationale = sentences[0] if sentences else r.text[:180]
+    expected_effect = (
+        "Снижение доли сотрудников в зоне риска и стабилизация ESSI в ближайшие периоды."
+        if source == "ml"
+        else "Стабилизация динамики ESSI и снижение управленческих рисков по отделу."
+    )
+    return source, rationale, expected_effect
+
+
 @router.get("", response_model=list[RecommendationOut])
 def list_recommendations(
     dept: int | None = None,
@@ -42,6 +54,9 @@ def list_recommendations(
             status=r.status,
             created_at=r.created_at,
             model_version=r.model_version,
+            source=_explainability_fields(r)[0],
+            rationale=_explainability_fields(r)[1],
+            expected_effect=_explainability_fields(r)[2],
         )
         for r in rows
     ]
@@ -63,6 +78,7 @@ def patch_recommendation(
         r.status = body.status
     db.commit()
     audit(db, user, "recommendation_update", "recommendation", {"id": rec_id})
+    source, rationale, expected_effect = _explainability_fields(r)
     return RecommendationOut(
         id=r.id,
         department_id=r.department_id,
@@ -72,4 +88,7 @@ def patch_recommendation(
         status=r.status,
         created_at=r.created_at,
         model_version=r.model_version,
+        source=source,
+        rationale=rationale,
+        expected_effect=expected_effect,
     )

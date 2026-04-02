@@ -27,6 +27,8 @@ export default function DepartmentDetail() {
   const [riskContributors, setRiskContributors] = useState<DepartmentEmployee[]>([]);
   const [err, setErr] = useState<string | null>(null);
   const [indexErr, setIndexErr] = useState<string | null>(null);
+  const strongestBlocks = [...blocks].sort((a, b) => b.value - a.value).slice(0, 2);
+  const weakestBlocks = [...blocks].sort((a, b) => a.value - b.value).slice(0, 2);
 
   useEffect(() => {
     if (!id) return;
@@ -144,8 +146,29 @@ export default function DepartmentDetail() {
                 <div className="font-medium text-gray-900">{b.title}</div>
                 <div className="text-lg font-semibold text-[#0052FF]">{b.value.toFixed(1)}</div>
                 <div className="text-xs text-gray-500">{b.interpretation}</div>
+                <div className="text-xs text-[#0052FF] mt-1">Что делать: {b.action_hint}</div>
               </div>
             ))}
+          </div>
+        )}
+        {blocks.length > 0 && (
+          <div className="grid md:grid-cols-2 gap-3 mt-4">
+            <div className="rounded-xl border border-green-100 bg-green-50 px-3 py-3">
+              <div className="text-xs uppercase tracking-wide text-green-700 mb-2">Опоры команды</div>
+              {strongestBlocks.map((b) => (
+                <div key={`s-${b.block_index}`} className="text-sm text-green-900">
+                  <span className="font-medium">{b.title}</span>: {b.value.toFixed(1)}
+                </div>
+              ))}
+            </div>
+            <div className="rounded-xl border border-amber-100 bg-amber-50 px-3 py-3">
+              <div className="text-xs uppercase tracking-wide text-amber-700 mb-2">Причины риска</div>
+              {weakestBlocks.map((b) => (
+                <div key={`w-${b.block_index}`} className="text-sm text-amber-900">
+                  <span className="font-medium">{b.title}</span>: {b.value.toFixed(1)}
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>

@@ -315,9 +315,15 @@ export default function Reports() {
       <div className="rounded-2xl border border-blue-100 bg-gradient-to-r from-blue-50 to-indigo-50 px-4 py-3 text-sm text-blue-900">
         Центр данных: импорт опросов, пересчёт индексов, отчёты и управленческие события.
       </div>
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900 mb-2 tracking-tight">Отчеты и данные</h1>
-        <p className="text-gray-600">Импорт CSV/XLSX, PDF/Excel, пересчёт индексов, экономика</p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2 tracking-tight">Отчеты и данные</h1>
+          <p className="text-gray-600">Импорт CSV/XLSX, PDF/Excel, пересчёт индексов, экономика и ML-контур</p>
+        </div>
+        <div className="hidden sm:flex items-center gap-2 rounded-2xl border border-blue-100 bg-blue-50 px-3 py-2">
+          <FileText className="text-[#0052FF]" size={16} />
+          <span className="text-xs font-medium text-blue-900">Управленческая отчетность</span>
+        </div>
       </div>
 
       <div className="bg-white rounded-2xl border border-gray-200 p-6 space-y-3 shadow-sm">
@@ -431,6 +437,12 @@ export default function Reports() {
           Значение ESSI при открытии страницы подставляется из среднего ESSI организации по данным опросов в системе.
           ФОТ, коэффициент k, C_replace и число ушедших вводятся вручную по вашей методике; автоматической подтяжки из бухгалтерии или кадров нет.
         </p>
+        <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-700">
+          <div className="font-medium text-gray-900 mb-1">Прозрачная логика расчета</div>
+          <div>Потери эффективности = ФОТ × k × (100 - ESSI)</div>
+          <div>Потери текучести = C_replace × Ушедшие</div>
+          <div className="font-semibold mt-1">Итого потерь = Потери эффективности + Потери текучести</div>
+        </div>
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
           <label className="text-sm">
             ФОТ
@@ -509,8 +521,34 @@ export default function Reports() {
             <div>Потери эффективности: {econResult.loss_efficiency}</div>
             <div>Потери текучести: {econResult.loss_turnover}</div>
             <div className="font-semibold">Итого: {econResult.loss_total}</div>
+            <div className="text-xs text-gray-500 pt-1">
+              Интерпретация: чем выше ESSI и ниже текучесть, тем меньше суммарные потери и выше управленческая
+              устойчивость.
+            </div>
           </div>
         )}
+      </div>
+
+      <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm space-y-3">
+        <h2 className="text-lg font-semibold">ML-контур и развитие рекомендаций</h2>
+        <p className="text-sm text-gray-600">
+          Текущий режим: гибрид правил и ML. Система сначала использует проверяемые правила, а при достаточном объеме
+          данных усиливает точность прогнозной моделью.
+        </p>
+        <div className="grid md:grid-cols-3 gap-3 text-sm">
+          <div className="rounded-xl border border-gray-200 px-3 py-3">
+            <div className="font-medium text-gray-900">Этап 1</div>
+            <div className="text-gray-600 mt-1">Стабильные правила, прозрачные пороги, контроль качества данных.</div>
+          </div>
+          <div className="rounded-xl border border-gray-200 px-3 py-3">
+            <div className="font-medium text-gray-900">Этап 2</div>
+            <div className="text-gray-600 mt-1">ML-прогноз динамики ESSI и усиление рекомендаций по рисковым группам.</div>
+          </div>
+          <div className="rounded-xl border border-gray-200 px-3 py-3">
+            <div className="font-medium text-gray-900">Этап 3</div>
+            <div className="text-gray-600 mt-1">Контур самообучения: измерение эффекта выполненных рекомендаций.</div>
+          </div>
+        </div>
       </div>
 
       <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm space-y-4">

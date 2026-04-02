@@ -11,7 +11,6 @@ import {
   ClipboardList,
 } from "lucide-react";
 import { useAuth } from "@/auth/AuthContext";
-import GlobalSearch from "./GlobalSearch";
 import NotificationsBell from "./NotificationsBell";
 
 const managerMenu = [
@@ -95,8 +94,7 @@ export default function Layout() {
 
       <div className="flex-1 flex flex-col overflow-hidden">
         <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6">
-          {!isEmployee && <GlobalSearch />}
-          {isEmployee && <div className="flex-1" />}
+          <div className="flex-1" />
 
           <div className="flex items-center gap-4">
             <NotificationsBell />

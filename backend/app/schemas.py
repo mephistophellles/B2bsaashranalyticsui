@@ -182,6 +182,9 @@ class RecommendationOut(BaseModel):
     status: str
     created_at: datetime
     model_version: str | None = None
+    source: str | None = None
+    rationale: str | None = None
+    expected_effect: str | None = None
 
     model_config = {"from_attributes": True}
 
@@ -254,6 +257,11 @@ class EmployeeCampaignOut(BaseModel):
 
 class ConsentRequest(BaseModel):
     accepted: bool
+
+
+class ConsentStatusOut(BaseModel):
+    accepted: bool
+    accepted_at: datetime | None = None
 
 
 class EmployeeListItem(BaseModel):

@@ -27,6 +27,19 @@ def _recommendation_description_for_employee(r: Recommendation) -> str:
     return r.text_employee if r.text_employee else r.text
 
 
+def _recommendation_explainability(r: Recommendation) -> tuple[str, str, str]:
+    source = "ml" if (r.model_version and r.model_version != "rules-v2") else "rules"
+    text = _recommendation_description_for_employee(r)
+    sentences = [part.strip() for part in text.replace("\n", " ").split(".") if part.strip()]
+    rationale = sentences[0] if sentences else text[:180]
+    expected_effect = (
+        "Более устойчивый рабочий ритм и снижение персонального стресса в команде."
+        if source == "ml"
+        else "Более понятная организация работы и снижение факторов выгорания."
+    )
+    return source, rationale, expected_effect
+
+
 def _survey_to_row(s: Survey) -> MySurveyRow:
     scores = [
         s.score_block1,
@@ -101,6 +114,9 @@ def my_recommendations(
             status=r.status,
             created_at=r.created_at,
             model_version=r.model_version,
+            source=_recommendation_explainability(r)[0],
+            rationale=_recommendation_explainability(r)[1],
+            expected_effect=_recommendation_explainability(r)[2],
         )
         for r in rows
     ]
@@ -121,6 +137,7 @@ def my_recommendation_detail(
     r = db.query(Recommendation).filter(Recommendation.id == rec_id).first()
     if not r or r.department_id != emp.department_id:
         raise HTTPException(status_code=404, detail="Not found")
+    source, rationale, expected_effect = _recommendation_explainability(r)
     return RecommendationOut(
         id=r.id,
         department_id=r.department_id,
@@ -130,6 +147,9 @@ def my_recommendation_detail(
         status=r.status,
         created_at=r.created_at,
         model_version=r.model_version,
+        source=source,
+        rationale=rationale,
+        expected_effect=expected_effect,
     )
 
 

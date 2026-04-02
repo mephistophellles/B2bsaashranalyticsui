@@ -13,6 +13,9 @@ type Rec = {
   status: string;
   created_at: string;
   model_version: string | null;
+  source?: string | null;
+  rationale?: string | null;
+  expected_effect?: string | null;
 };
 
 export default function Recommendations() {
@@ -77,7 +80,7 @@ export default function Recommendations() {
   return (
     <div className="p-6 space-y-6">
       <div className="rounded-2xl border border-amber-100 bg-gradient-to-r from-amber-50 to-orange-50 px-4 py-3 text-sm text-amber-900">
-        Подсказки к действиям: фильтруйте рекомендации и фиксируйте выполнение.
+        Подсказки к действиям: для каждой рекомендации показываем основание, ожидаемый эффект и источник (правила/ML).
       </div>
       <div className="flex items-center gap-3">
         <div className="w-12 h-12 rounded-2xl bg-amber-50 flex items-center justify-center shadow-sm">
@@ -162,6 +165,16 @@ export default function Recommendations() {
               <div className="min-w-0 flex-1">
                 <div className="font-semibold text-gray-900">{r.title}</div>
                 <div className="text-sm text-gray-600 mt-2 leading-relaxed line-clamp-3">{r.description}</div>
+                {r.rationale && (
+                  <div className="mt-2 text-xs text-gray-600 rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5">
+                    Основание: {r.rationale}
+                  </div>
+                )}
+                {r.expected_effect && (
+                  <div className="mt-1 text-xs text-green-700 rounded-lg border border-green-100 bg-green-50 px-2.5 py-1.5">
+                    Ожидаемый эффект: {r.expected_effect}
+                  </div>
+                )}
               </div>
               <div className="flex flex-col items-end gap-2">
                 <span
@@ -188,7 +201,10 @@ export default function Recommendations() {
               </div>
             </div>
             {r.model_version && (
-              <p className="text-xs text-gray-400 mt-2">model: {r.model_version}</p>
+              <p className="text-xs text-gray-400 mt-2">
+                model: {r.model_version}
+                {r.source ? ` · источник: ${r.source}` : ""}
+              </p>
             )}
           </div>
         ))}
@@ -221,9 +237,20 @@ export default function Recommendations() {
               </button>
             </div>
             <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{selected.description}</p>
+            {selected.rationale && (
+              <p className="text-xs text-gray-600 mt-3 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                Основание: {selected.rationale}
+              </p>
+            )}
+            {selected.expected_effect && (
+              <p className="text-xs text-green-700 mt-2 bg-green-50 border border-green-100 rounded-lg px-3 py-2">
+                Ожидаемый эффект: {selected.expected_effect}
+              </p>
+            )}
             <div className="flex flex-wrap gap-2 mt-4 text-xs text-gray-500">
               <span>Статус: {selected.status}</span>
               <span>Приоритет: {selected.priority}</span>
+              {selected.source && <span>Источник: {selected.source}</span>}
               {selected.model_version && <span>Версия: {selected.model_version}</span>}
             </div>
             <div className="mt-6 flex flex-wrap gap-3">

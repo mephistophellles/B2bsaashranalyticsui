@@ -147,6 +147,9 @@ export default function Dashboard() {
   const recentEmployees = data.recent_employees;
   const recommendations = data.recommendations_preview;
   const blockMetrics = data.essi_blocks ?? [];
+  const blockPercentages = data.block_percentages ?? [];
+  const strongestBlocks = [...blockPercentages].sort((a, b) => b.value - a.value).slice(0, 2);
+  const weakestBlocks = [...blockPercentages].sort((a, b) => a.value - b.value).slice(0, 2);
   const sparseData =
     data.department_bars.length === 0 && data.recent_employees.length === 0;
 
@@ -155,33 +158,41 @@ export default function Dashboard() {
       <div className="rounded-2xl border border-blue-100 bg-gradient-to-r from-blue-50 to-indigo-50 px-4 py-3 text-sm text-blue-900">
         Единая панель устойчивости: следите за индексом ESSI, рисками и вкладом отделов.
       </div>
-      <div className="flex flex-wrap gap-2 items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Главная</h1>
-        <div className="relative" ref={periodRef}>
-          <button
-            type="button"
-            className="text-sm text-gray-700 flex items-center gap-2 border border-gray-300 rounded-xl px-3 py-2 bg-white hover:border-[#0052FF]"
-            onClick={() => setPeriodOpen((x) => !x)}
-          >
-            Период ESSI: <span className="font-medium">{months} мес.</span>
-          </button>
-          {periodOpen && (
-            <div className="absolute right-0 mt-1 w-36 rounded-xl border border-gray-200 bg-white shadow-lg z-20 py-1">
-              {[3, 6, 12, 24].map((m) => (
-                <button
-                  key={m}
-                  type="button"
-                  className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 ${months === m ? "text-[#0052FF] font-medium" : "text-gray-700"}`}
-                  onClick={() => {
-                    setMonths(m);
-                    setPeriodOpen(false);
-                  }}
-                >
-                  {m} мес.
-                </button>
-              ))}
-            </div>
-          )}
+      <div className="flex flex-wrap gap-3 items-center justify-between">
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold text-gray-900">Главная</h1>
+          <div className="hidden sm:flex items-center gap-2 rounded-2xl border border-blue-100 bg-blue-50 px-3 py-2">
+            <Activity className="text-[#0052FF]" size={16} />
+            <span className="text-xs font-medium text-blue-900">Аналитический центр ESSI</span>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="relative" ref={periodRef}>
+            <button
+              type="button"
+              className="text-sm text-gray-700 flex items-center gap-2 border border-gray-300 rounded-xl px-3 py-2 bg-white hover:border-[#0052FF]"
+              onClick={() => setPeriodOpen((x) => !x)}
+            >
+              Период ESSI: <span className="font-medium">{months} мес.</span>
+            </button>
+            {periodOpen && (
+              <div className="absolute right-0 mt-1 w-36 rounded-xl border border-gray-200 bg-white shadow-lg z-20 py-1">
+                {[3, 6, 12, 24].map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 ${months === m ? "text-[#0052FF] font-medium" : "text-gray-700"}`}
+                    onClick={() => {
+                      setMonths(m);
+                      setPeriodOpen(false);
+                    }}
+                  >
+                    {m} мес.
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
       {sparseData && (
@@ -406,9 +417,34 @@ export default function Dashboard() {
               <div className="text-sm font-medium text-gray-900 line-clamp-2">{b.title}</div>
               <div className="text-xl font-bold text-[#0052FF] mt-2">{b.value.toFixed(1)}</div>
               <div className="text-xs text-gray-500 mt-1">{b.interpretation}</div>
+              <div className="text-xs text-[#0052FF] mt-1">Что делать: {b.action_hint}</div>
             </div>
           ))}
         </div>
+        {blockPercentages.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+            <div className="rounded-xl border border-green-100 bg-green-50/70 px-4 py-3">
+              <div className="text-xs uppercase tracking-wide text-green-700 mb-2">Сильные стороны</div>
+              <div className="space-y-1.5">
+                {strongestBlocks.map((b) => (
+                  <div key={`strong-${b.block_index}`} className="text-sm text-green-900">
+                    <span className="font-medium">{b.title}</span>: {b.value.toFixed(1)}%
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="rounded-xl border border-amber-100 bg-amber-50/70 px-4 py-3">
+              <div className="text-xs uppercase tracking-wide text-amber-700 mb-2">Точки роста</div>
+              <div className="space-y-1.5">
+                {weakestBlocks.map((b) => (
+                  <div key={`weak-${b.block_index}`} className="text-sm text-amber-900">
+                    <span className="font-medium">{b.title}</span>: {b.value.toFixed(1)}%
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

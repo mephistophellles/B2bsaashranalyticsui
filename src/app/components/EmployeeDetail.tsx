@@ -12,6 +12,8 @@ import {
 } from "./ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 
+const latinRegex = /[A-Za-z]/;
+
 type SurveyRow = {
   id: number;
   survey_date: string;
@@ -77,6 +79,17 @@ export default function EmployeeDetail() {
   const [expandedSurveyId, setExpandedSurveyId] = useState<number | null>(null);
   const [blocks, setBlocks] = useState<BlockMetric[]>([]);
   const [recommendedActions, setRecommendedActions] = useState<Recommendation[]>([]);
+  const strongestBlocks = [...blocks].sort((a, b) => b.value - a.value).slice(0, 2);
+  const weakestBlocks = [...blocks].sort((a, b) => a.value - b.value).slice(0, 2);
+  const editNameError =
+    editName.trim().length > 0 && latinRegex.test(editName)
+      ? "Поле ФИО должно быть на кириллице."
+      : null;
+  const editPositionError =
+    editPosition.trim().length > 0 && latinRegex.test(editPosition)
+      ? "Поле должности должно быть на кириллице."
+      : null;
+  const hasEditValidationError = Boolean(editNameError || editPositionError);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -129,7 +142,7 @@ export default function EmployeeDetail() {
 
   async function saveEdit(e: React.FormEvent) {
     e.preventDefault();
-    if (!id || editDeptId === "") return;
+    if (!id || editDeptId === "" || hasEditValidationError) return;
     setSaving(true);
     setMsg(null);
     try {
@@ -263,8 +276,29 @@ export default function EmployeeDetail() {
                 <div className="font-medium text-gray-900">{b.title}</div>
                 <div className="text-lg font-semibold text-[#0052FF]">{b.value.toFixed(1)}</div>
                 <div className="text-xs text-gray-500">{b.interpretation}</div>
+                <div className="text-xs text-[#0052FF] mt-1">Что делать: {b.action_hint}</div>
               </div>
             ))}
+          </div>
+        )}
+        {blocks.length > 0 && (
+          <div className="grid md:grid-cols-2 gap-3 mt-4">
+            <div className="rounded-xl border border-green-100 bg-green-50 px-3 py-3">
+              <div className="text-xs uppercase tracking-wide text-green-700 mb-2">Сильные стороны сотрудника</div>
+              {strongestBlocks.map((b) => (
+                <div key={`strong-${b.block_index}`} className="text-sm text-green-900">
+                  <span className="font-medium">{b.title}</span>: {b.value.toFixed(1)}
+                </div>
+              ))}
+            </div>
+            <div className="rounded-xl border border-amber-100 bg-amber-50 px-3 py-3">
+              <div className="text-xs uppercase tracking-wide text-amber-700 mb-2">Зоны внимания</div>
+              {weakestBlocks.map((b) => (
+                <div key={`weak-${b.block_index}`} className="text-sm text-amber-900">
+                  <span className="font-medium">{b.title}</span>: {b.value.toFixed(1)}
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>
@@ -335,11 +369,14 @@ export default function EmployeeDetail() {
             <label className="text-sm block">
               ФИО
               <input
-                className="mt-1 w-full border rounded-xl px-3 py-2"
+                className={`mt-1 w-full border rounded-xl px-3 py-2 ${
+                  editNameError ? "border-red-400 bg-red-50" : ""
+                }`}
                 value={editName}
                 onChange={(e) => setEditName(e.target.value)}
                 required
               />
+              {editNameError && <p className="mt-1 text-xs text-red-600">{editNameError}</p>}
             </label>
             <label className="text-sm block">
               Отдел
@@ -362,10 +399,13 @@ export default function EmployeeDetail() {
             <label className="text-sm block">
               Должность
               <input
-                className="mt-1 w-full border rounded-xl px-3 py-2"
+                className={`mt-1 w-full border rounded-xl px-3 py-2 ${
+                  editPositionError ? "border-red-400 bg-red-50" : ""
+                }`}
                 value={editPosition}
                 onChange={(e) => setEditPosition(e.target.value)}
               />
+              {editPositionError && <p className="mt-1 text-xs text-red-600">{editPositionError}</p>}
             </label>
             <label className="text-sm block">
               Email
@@ -379,7 +419,7 @@ export default function EmployeeDetail() {
           </div>
           <button
             type="submit"
-            disabled={saving || editDeptId === ""}
+            disabled={saving || editDeptId === "" || hasEditValidationError}
             className="px-4 py-2 rounded-xl bg-[#0052FF] text-white font-medium disabled:opacity-50"
           >
             {saving ? "Сохранение…" : "Сохранить"}
