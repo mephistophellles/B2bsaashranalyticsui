@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { apiFetch, parseErrorMessage } from "@/api/client";
 import { useAuth } from "@/auth/AuthContext";
+import EmployeeTrustFAQ from "./EmployeeTrustFAQ";
 
 type Q = { id: number; block_index: number; order_in_block: number; text: string };
 
@@ -155,6 +156,9 @@ export default function Survey() {
             Перед прохождением опроса необходимо согласие на обработку персональных данных в соответствии с
             ФЗ-152. Данные используются для расчёта обезличенных показателей и рекомендаций для организации.
           </p>
+          <p className="text-[#0052FF]">
+            Это диагностика условий и процессов, не личная оценка сотрудника.
+          </p>
           {msg && <p className="text-red-600">{msg}</p>}
           <button
             type="button"
@@ -195,7 +199,11 @@ export default function Survey() {
           Блок {blockStep + 1} из {blocks.length || 1}. Шкала Лайкерта: 1 — полностью не согласен; 2 — скорее не
           согласен; 3 — затрудняюсь ответить; 4 — скорее согласен; 5 — полностью согласен.
         </p>
+        <p className="text-sm text-blue-900 mt-2 rounded-xl border border-blue-100 bg-blue-50 px-3 py-2">
+          Ответы помогают улучшать среду работы, а не оценивать человека по одному ответу.
+        </p>
       </div>
+      <EmployeeTrustFAQ compact />
       <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
         <div
           className="h-full rounded-full bg-gradient-to-r from-[#0052FF] to-[#4D7CFF] transition-all duration-300"

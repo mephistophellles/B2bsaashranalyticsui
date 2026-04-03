@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import { Lightbulb } from "lucide-react";
 import { apiFetch } from "@/api/client";
+import EmployeeTrustFAQ from "./EmployeeTrustFAQ";
 
 type Summary = {
   name: string;
@@ -71,6 +72,16 @@ export default function EmployeeHome() {
 
   return (
     <div className="p-6 space-y-8 max-w-2xl">
+      <div className="rounded-2xl border border-blue-100 bg-gradient-to-r from-blue-50 to-indigo-50 px-4 py-4 text-sm text-blue-900">
+        <p className="leading-relaxed">
+          Опрос помогает понять состояние команды и рабочей среды: где есть устойчивость, а где нужны улучшения.
+          Руководитель видит агрегированную управленческую картину и динамику по команде, а не инструмент личного
+          наказания сотрудника.
+        </p>
+        <a href="#employee-faq" className="inline-block mt-2 font-medium underline">
+          Подробнее о том, как работает ESSI
+        </a>
+      </div>
       <div className="rounded-2xl border border-green-100 bg-gradient-to-r from-green-50 to-emerald-50 px-4 py-3 text-sm text-green-900">
         Эта зона создана для сотрудника: спокойно пройти опрос, понять личную динамику и получить поддержку. Данные
         используются для улучшения условий работы, а не для наказания.
@@ -202,6 +213,8 @@ export default function EmployeeHome() {
           </ul>
         )}
       </div>
+
+      <EmployeeTrustFAQ />
     </div>
   );
 }
