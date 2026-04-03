@@ -231,6 +231,9 @@ export default function Dashboard() {
             </div>
             <span className="text-xs text-gray-500">к прошлому периоду</span>
           </div>
+          <p className="text-xs text-gray-500 mt-2 leading-relaxed">
+            Индекс отражает текущее состояние устойчивости персонала и помогает выявлять зоны риска и точки роста.
+          </p>
           <div className="mt-3" style={{ height: 48 }}>
             <ResponsiveContainer width="100%" height={48}>
               <AreaChart data={essiData}>
@@ -333,6 +336,10 @@ export default function Dashboard() {
               </>
             )}
             .
+          </p>
+          <p className="text-xs text-gray-500 mt-1 leading-relaxed">
+            Количество сотрудников, чье состояние требует дополнительного анализа, сформировано на основе
+            совокупности показателей и динамики.
           </p>
           <p className="text-xs text-gray-500 mt-1">
             Кризис (&lt;40): {data.risk_crisis_count} · Зона риска (40–60): {data.risk_zone_count}
@@ -450,6 +457,10 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="bg-white rounded-xl border border-gray-200 p-6 lg:col-span-2">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Динамика ESSI</h2>
+          <p className="text-sm text-gray-600 mb-3">
+            Изменение состояния сотрудников по сравнению с предыдущим периодом позволяет отслеживать тенденции и
+            своевременно реагировать на изменения.
+          </p>
           {essiData.length === 0 ? (
             <p className="text-sm text-gray-500">Нет данных для выбранного периода.</p>
           ) : (

@@ -37,70 +37,81 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#FAFAFA] p-4">
-      <form
-        onSubmit={onSubmit}
-        className="w-full max-w-md bg-white border border-gray-200 rounded-2xl p-8 shadow-sm space-y-6"
-      >
-        <div>
-          <h1 className="text-2xl font-bold bg-gradient-to-r from-[#0052FF] to-[#4D7CFF] bg-clip-text text-transparent">
-            ПОТЕНКОР
-          </h1>
-          <p className="text-sm text-gray-500 mt-1">Научно-технологическая HR-платформа (ESSI + причины + риски + рекомендации)</p>
-        </div>
-        <div className="rounded-xl border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-900">
-          Для руководителя: управленческие метрики и обоснованные действия. Для сотрудника: понятная и безопасная
-          диагностика без карательной логики.
-        </div>
-        {err && (
-          <div className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
-            {err}
+    <div className="min-h-screen bg-[#F3F4F6] p-4 md:p-6">
+      <div className="mx-auto max-w-6xl rounded-2xl overflow-hidden border border-gray-200 bg-white shadow-sm min-h-[78vh] grid grid-cols-1 lg:grid-cols-[1.05fr_1.45fr]">
+        <aside className="bg-gradient-to-br from-[#0F5CBD] to-[#0A4A99] text-white p-10 lg:p-12 flex flex-col justify-between">
+          <div className="space-y-8">
+            <div className="inline-flex items-center gap-2 bg-white/10 border border-white/20 rounded-xl px-3 py-2">
+              <div className="w-6 h-6 rounded-md bg-white text-[#0F5CBD] text-xs font-bold flex items-center justify-center">
+                P
+              </div>
+              <span className="font-semibold">Потенкор</span>
+            </div>
+            <div>
+              <h1 className="text-4xl font-bold leading-tight">Вход в систему</h1>
+              <p className="mt-4 text-sm text-blue-100 max-w-md leading-relaxed">
+                PotenCore помогает компаниям понимать состояние сотрудников и команд, выявлять причины изменений и
+                принимать более точные управленческие решения на основе данных.
+              </p>
+            </div>
           </div>
-        )}
-        <div className="space-y-2">
-          <label className="text-sm text-gray-600">Логин</label>
-          <input
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-[#0052FF] outline-none"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            autoComplete="username"
-          />
+          <p className="text-sm text-blue-100 max-w-md">
+            Надежный доступ к данным и управленческим инструментам платформы.
+          </p>
+        </aside>
+
+        <div className="p-6 md:p-10 lg:p-14 flex items-center justify-center">
+          <form onSubmit={onSubmit} className="w-full max-w-md space-y-5">
+            <div>
+              <h2 className="text-3xl font-bold text-gray-900">Войти</h2>
+              <p className="text-sm text-gray-500 mt-1">Введите логин и пароль для доступа к платформе.</p>
+            </div>
+
+            {err && (
+              <div className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+                {err}
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <label className="text-sm text-gray-700 font-medium">Логин</label>
+              <input
+                className="w-full h-12 border border-gray-300 rounded-xl px-3 focus:ring-2 focus:ring-[#0052FF] outline-none"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                autoComplete="username"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm text-gray-700 font-medium">Пароль</label>
+              <input
+                type="password"
+                className="w-full h-12 border border-gray-300 rounded-xl px-3 focus:ring-2 focus:ring-[#0052FF] outline-none"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete="current-password"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={submitting}
+              className="w-full h-12 rounded-xl font-semibold text-white bg-gradient-to-r from-[#0052FF] to-[#4D7CFF] hover:opacity-95 disabled:opacity-60 shadow-md"
+            >
+              {submitting ? "Вход…" : "Войти"}
+            </button>
+
+            <p className="text-xs text-gray-500 leading-relaxed">
+              Продолжая работу в системе, вы подтверждаете согласие с условиями обработки{" "}
+              <Link to="/legal/consent" className="text-[#0052FF] hover:underline">
+                персональных данных
+              </Link>
+              .
+            </p>
+          </form>
         </div>
-        <div className="space-y-2">
-          <label className="text-sm text-gray-600">Пароль</label>
-          <input
-            type="password"
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-[#0052FF] outline-none"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            autoComplete="current-password"
-          />
-        </div>
-        <button
-          type="submit"
-          disabled={submitting}
-          className="w-full py-2.5 rounded-xl font-semibold text-white bg-gradient-to-r from-[#0052FF] to-[#4D7CFF] hover:opacity-95 disabled:opacity-60 shadow-md"
-        >
-          {submitting ? "Вход…" : "Войти"}
-        </button>
-        <p className="text-xs text-gray-400 text-center">
-          Демо: manager/manager123 или employee/employee123
-        </p>
-        <p className="text-xs text-center text-gray-500">
-          Входя в систему, вы подтверждаете ознакомление с{" "}
-          <Link to="/legal/consent" className="text-[#0052FF] hover:underline">
-            условиями обработки персональных данных
-          </Link>
-          .
-        </p>
-        <p className="text-xs text-center text-gray-500">
-          Новым пользователям:{" "}
-          <Link to="/home" className="text-[#0052FF] hover:underline">
-            обзор платформы, ESSI и тарифов
-          </Link>
-          .
-        </p>
-      </form>
+      </div>
     </div>
   );
 }

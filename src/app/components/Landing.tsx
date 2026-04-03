@@ -1,11 +1,5 @@
 import { Link } from "react-router";
 
-const packs = [
-  { name: "Start", price: "от 79 000 ₽/мес", note: "до 100 сотрудников, базовая аналитика и отчеты" },
-  { name: "Growth", price: "от 159 000 ₽/мес", note: "до 500 сотрудников, риски, рекомендации, экономика" },
-  { name: "Enterprise", price: "индивидуально", note: "масштабирование, кастомные интеграции, расширенный ML-контур" },
-];
-
 export default function Landing() {
   return (
     <div className="min-h-screen bg-[#FAFAFA]">
@@ -13,8 +7,11 @@ export default function Landing() {
         <header className="rounded-3xl border border-blue-100 bg-gradient-to-r from-blue-50 to-indigo-50 p-8">
           <h1 className="text-4xl font-bold text-gray-900">ПОТЕНКОР</h1>
           <p className="mt-3 text-gray-700 max-w-3xl">
-            Интеллектуальная HR-аналитическая платформа: измеряет устойчивость команд через ESSI, объясняет причины
-            изменений, заранее показывает риски и формирует обоснованные рекомендации для управленческих решений.
+            PotenCore (или "Потенкор") — платформа управления человеческим потенциалом и социальной устойчивостью
+            персонала. Платформа предназначена для анализа состояния сотрудников и команд, выявления факторов
+            устойчивости и риска, понимания причин изменений и формирования обоснованных управленческих решений.
+            Система переводит данные о сотрудниках в понятную управленческую логику, позволяя руководителю видеть не
+            только показатели, но и их интерпретацию, причины и возможные действия.
           </p>
           <div className="mt-5 flex flex-wrap gap-3">
             <Link to="/login" className="px-4 py-2 rounded-xl bg-[#0052FF] text-white font-medium">
@@ -23,44 +20,57 @@ export default function Landing() {
           </div>
         </header>
 
-        <section className="grid md:grid-cols-2 gap-4">
-          <div className="bg-white rounded-2xl border border-gray-200 p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-2">Для кого платформа</h2>
-            <p className="text-sm text-gray-700">
-              Для собственников, руководителей, HR и команд, которым нужно принимать решения на данных, а не
-              интуитивно.
-            </p>
-          </div>
-          <div className="bg-white rounded-2xl border border-gray-200 p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-2">Что такое ESSI</h2>
-            <p className="text-sm text-gray-700">
-              ESSI — индекс устойчивости сотрудника и команды. Он показывает, где система работы держится стабильно, а
-              где формируются риски выгорания, текучести и потери эффективности.
-            </p>
-          </div>
-        </section>
+        <section className="bg-white rounded-2xl border border-gray-200 p-6 space-y-4">
+          <h2 className="text-xl font-semibold text-gray-900">Планируемый способ получения дохода</h2>
+          <p className="text-sm text-gray-700">
+            Монетизация платформы «Потенциал» построена в B2B-формате и включает два понятных продукта, которые можно
+            приобретать отдельно.
+          </p>
 
-        <section className="bg-white rounded-2xl border border-gray-200 p-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-3">Почему это дает преимущество</h2>
-          <ul className="text-sm text-gray-700 space-y-2">
-            <li>Показываем не только цифры, но и причины динамики по блокам.</li>
-            <li>Выявляем риски раньше, чем они превращаются в текучесть и потери.</li>
-            <li>Даем рекомендации с ожидаемым эффектом и отслеживанием результата.</li>
-            <li>Связываем ESSI с экономикой: потери производительности, стоимость замены, управленческие риски.</li>
-          </ul>
-        </section>
-
-        <section className="space-y-3">
-          <h2 className="text-xl font-semibold text-gray-900">Тарифы и пакеты</h2>
-          <div className="grid md:grid-cols-3 gap-4">
-            {packs.map((pack) => (
-              <div key={pack.name} className="bg-white rounded-2xl border border-gray-200 p-5">
-                <div className="text-lg font-semibold text-gray-900">{pack.name}</div>
-                <div className="text-[#0052FF] font-bold mt-2">{pack.price}</div>
-                <p className="text-sm text-gray-600 mt-2">{pack.note}</p>
-              </div>
-            ))}
+          <div className="space-y-2 text-sm text-gray-700">
+            <p>
+              <span className="font-semibold text-gray-900">Первый продукт — разовая диагностика:</span> компания
+              оплачивает один цикл измерения, получает отчёт с индексами и профилями по блокам, а также базовые
+              управленческие рекомендации; стоимость разовой диагностики зависит от численности:
+            </p>
+            <ul className="list-disc list-inside space-y-1">
+              <li>до 100 человек — 15 000 руб.,</li>
+              <li>101–300 — 20 000 руб.,</li>
+              <li>301–1000 — 30 000 руб.,</li>
+              <li>свыше 1000 — индивидуальный расчёт.</li>
+            </ul>
+            <p>
+              Разовая диагностика может повторяться по запросу компании через 3–6 месяцев для оценки динамики и эффекта
+              мер, по сниженной цене:
+            </p>
+            <ul className="list-disc list-inside space-y-1">
+              <li>до 100 — 10 000 руб.,</li>
+              <li>101–300 — 15 000 руб.,</li>
+              <li>301–1000 — 20 000 руб.,</li>
+              <li>свыше 1000 — индивидуально.</li>
+            </ul>
           </div>
+
+          <div className="space-y-2 text-sm text-gray-700">
+            <p>
+              <span className="font-semibold text-gray-900">Второй продукт — годовая подписка на платформу:</span>{" "}
+              подписка включает доступ к личным кабинетам, хранение истории замеров, дашборды, план действий и модуль
+              рекомендаций, а также два плановых диагностических цикла в год (базовый и контрольный) для измерения
+              эффекта управленческих изменений; тарифы подписки:
+            </p>
+            <ul className="list-disc list-inside space-y-1">
+              <li>«Старт» до 100 человек — 29 900 руб./год,</li>
+              <li>«Оптима» 101–300 — 49 900 руб./год,</li>
+              <li>«Профи» 301–1000 — 89 900 руб./год,</li>
+              <li>свыше 1000 — индивидуальные условия.</li>
+            </ul>
+          </div>
+
+          <p className="text-sm text-gray-700">
+            Данный формат делает коммерческое предложение прозрачным: компания выбирает либо разовую диагностику как
+            быстрый старт, либо годовую подписку как регулярный управленческий цикл, а заказчик заранее понимает, за что
+            платит и что получает.
+          </p>
         </section>
       </div>
     </div>
