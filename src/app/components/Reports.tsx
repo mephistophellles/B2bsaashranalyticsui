@@ -56,9 +56,33 @@ type DecisionPayload = {
     previous_value: number;
     delta_pct: number;
   };
-  strengths: { block_index: number; title: string; value: number; note: string }[];
-  risk_zones: { id: string; name: string; department: string; essi: number; status: string }[];
-  causes: { title: string; source: string; reasons: ExplainReason[] }[];
+  strengths: {
+    block_index: number;
+    title: string;
+    value: number;
+    note: string;
+    what_it_means: string;
+    reason_text: string;
+    actions: string;
+  }[];
+  risk_zones: {
+    id: string;
+    name: string;
+    department: string;
+    essi: number;
+    status: string;
+    what_it_means: string;
+    reason_text: string;
+    actions: string;
+  }[];
+  causes: {
+    title: string;
+    source: string;
+    reasons: ExplainReason[];
+    what_it_means: string;
+    reason_text: string;
+    actions: string;
+  }[];
   recommendations: {
     id: number;
     title: string;
@@ -68,6 +92,9 @@ type DecisionPayload = {
     source?: string | null;
     expected_effect?: string | null;
     structured_reasons: ExplainReason[];
+    what_it_means: string;
+    reason_text: string;
+    actions: string;
   }[];
   economic_effect: {
     essi_score: number;
@@ -447,57 +474,126 @@ export default function Reports() {
 
             <section className="rounded-xl border border-gray-200 p-4">
               <h3 className="font-semibold text-gray-900 mb-2">3) Сильные стороны</h3>
-              <div className="space-y-2">
-                {decision.strengths.map((s) => (
-                  <div key={`${s.block_index}-${s.title}`} className="rounded-lg border border-green-100 bg-green-50 px-3 py-2 text-sm">
-                    <span className="font-medium">{s.title}</span>: {s.value} · {s.note}
-                  </div>
-                ))}
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[920px] text-sm">
+                  <thead>
+                    <tr className="bg-gray-50 border-b border-gray-200">
+                      <th className="text-left px-3 py-2">Блок</th>
+                      <th className="text-left px-3 py-2">Значение</th>
+                      <th className="text-left px-3 py-2">Что означает</th>
+                      <th className="text-left px-3 py-2">Причина</th>
+                      <th className="text-left px-3 py-2">Действия</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {decision.strengths.map((s) => (
+                      <tr key={`${s.block_index}-${s.title}`} className="border-b border-gray-100 align-top">
+                        <td className="px-3 py-2 font-medium">{s.title}</td>
+                        <td className="px-3 py-2">{s.value}</td>
+                        <td className="px-3 py-2 whitespace-normal break-words">{s.what_it_means}</td>
+                        <td className="px-3 py-2 whitespace-normal break-words">{s.reason_text}</td>
+                        <td className="px-3 py-2 whitespace-normal break-words">{s.actions}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </section>
 
             <section className="rounded-xl border border-gray-200 p-4">
               <h3 className="font-semibold text-gray-900 mb-2">4) Зоны риска</h3>
-              <div className="space-y-2">
-                {decision.risk_zones.map((r) => (
-                  <div key={r.id} className="rounded-lg border border-amber-100 bg-amber-50 px-3 py-2 text-sm">
-                    <span className="font-medium">{r.name}</span> · {r.department} · ESSI {r.essi} · {r.status}
-                  </div>
-                ))}
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[1040px] text-sm">
+                  <thead>
+                    <tr className="bg-gray-50 border-b border-gray-200">
+                      <th className="text-left px-3 py-2">Сотрудник</th>
+                      <th className="text-left px-3 py-2">Отдел</th>
+                      <th className="text-left px-3 py-2">ESSI</th>
+                      <th className="text-left px-3 py-2">Статус</th>
+                      <th className="text-left px-3 py-2">Что означает</th>
+                      <th className="text-left px-3 py-2">Причина</th>
+                      <th className="text-left px-3 py-2">Действия</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {decision.risk_zones.map((r) => (
+                      <tr key={r.id} className="border-b border-gray-100 align-top">
+                        <td className="px-3 py-2 font-medium">{r.name}</td>
+                        <td className="px-3 py-2">{r.department}</td>
+                        <td className="px-3 py-2">{r.essi}</td>
+                        <td className="px-3 py-2">{r.status}</td>
+                        <td className="px-3 py-2 whitespace-normal break-words">{r.what_it_means}</td>
+                        <td className="px-3 py-2 whitespace-normal break-words">{r.reason_text}</td>
+                        <td className="px-3 py-2 whitespace-normal break-words">{r.actions}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </section>
 
             <section className="rounded-xl border border-gray-200 p-4">
               <h3 className="font-semibold text-gray-900 mb-2">5) Причины</h3>
-              <div className="space-y-3">
-                {decision.causes.map((c) => (
-                  <div key={c.title} className="rounded-lg border border-gray-200 px-3 py-2">
-                    <div className="text-sm font-medium text-gray-900">{c.title} <span className="text-xs text-gray-500">({c.source})</span></div>
-                    <ul className="mt-1 space-y-1">
-                      {c.reasons.slice(0, 4).map((reason) => (
-                        <li key={`${c.title}-${reason.code}`} className="text-xs text-gray-700">- {reason.label}: {reason.detail}</li>
-                      ))}
-                    </ul>
-                  </div>
-                ))}
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[1080px] text-sm">
+                  <thead>
+                    <tr className="bg-gray-50 border-b border-gray-200">
+                      <th className="text-left px-3 py-2">Кейс</th>
+                      <th className="text-left px-3 py-2">Источник</th>
+                      <th className="text-left px-3 py-2">Фактор</th>
+                      <th className="text-left px-3 py-2">Что означает</th>
+                      <th className="text-left px-3 py-2">Причина</th>
+                      <th className="text-left px-3 py-2">Действия</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {decision.causes.map((c) => (
+                      <tr key={c.title} className="border-b border-gray-100 align-top">
+                        <td className="px-3 py-2 font-medium">{c.title}</td>
+                        <td className="px-3 py-2">{c.source}</td>
+                        <td className="px-3 py-2 whitespace-normal break-words">
+                          {c.reasons.slice(0, 2).map((reason) => reason.label).join("; ") || "—"}
+                        </td>
+                        <td className="px-3 py-2 whitespace-normal break-words">{c.what_it_means}</td>
+                        <td className="px-3 py-2 whitespace-normal break-words">{c.reason_text}</td>
+                        <td className="px-3 py-2 whitespace-normal break-words">{c.actions}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </section>
 
             <section className="rounded-xl border border-gray-200 p-4">
               <h3 className="font-semibold text-gray-900 mb-2">6) Рекомендации</h3>
-              <div className="space-y-3">
-                {decision.recommendations.map((r) => (
-                  <div key={r.id} className="rounded-lg border border-gray-200 px-3 py-2">
-                    <div className="text-sm font-medium text-gray-900">{r.title}</div>
-                    <div className="text-xs text-gray-500 mt-1">{r.priority} · {r.status} {r.source ? `· ${r.source}` : ""}</div>
-                    {r.expected_effect && <div className="text-xs text-green-700 mt-1">Ожидаемый эффект: {r.expected_effect}</div>}
-                    <ul className="mt-1 space-y-1">
-                      {r.structured_reasons.slice(0, 3).map((reason) => (
-                        <li key={`${r.id}-${reason.code}`} className="text-xs text-gray-700">- {reason.label}: {reason.detail}</li>
-                      ))}
-                    </ul>
-                  </div>
-                ))}
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[1100px] text-sm">
+                  <thead>
+                    <tr className="bg-gray-50 border-b border-gray-200">
+                      <th className="text-left px-3 py-2">Рекомендация</th>
+                      <th className="text-left px-3 py-2">Приоритет</th>
+                      <th className="text-left px-3 py-2">Статус</th>
+                      <th className="text-left px-3 py-2">Что означает</th>
+                      <th className="text-left px-3 py-2">Причина</th>
+                      <th className="text-left px-3 py-2">Действия</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {decision.recommendations.map((r) => (
+                      <tr key={r.id} className="border-b border-gray-100 align-top">
+                        <td className="px-3 py-2">
+                          <div className="font-medium">{r.title}</div>
+                          {r.expected_effect && <div className="text-xs text-green-700 mt-1">Эффект: {r.expected_effect}</div>}
+                        </td>
+                        <td className="px-3 py-2">{r.priority}</td>
+                        <td className="px-3 py-2">{r.status}</td>
+                        <td className="px-3 py-2 whitespace-normal break-words">{r.what_it_means}</td>
+                        <td className="px-3 py-2 whitespace-normal break-words">{r.reason_text}</td>
+                        <td className="px-3 py-2 whitespace-normal break-words">{r.actions}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </section>
 

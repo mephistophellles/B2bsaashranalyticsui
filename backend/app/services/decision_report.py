@@ -77,6 +77,23 @@ def _top_risk_employees(db: Session, limit: int = 5) -> list[dict[str, Any]]:
                     if row.essi < 80
                     else "Высокая устойчивость"
                 ),
+                "what_it_means": (
+                    "Требуется срочное управленческое вмешательство."
+                    if row.essi < 40
+                    else "Есть выраженный риск снижения устойчивости."
+                    if row.essi < 60
+                    else "Состояние приемлемое, но требует мониторинга."
+                ),
+                "reason_text": (
+                    "Низкое значение интегрального индекса ESSI."
+                    if row.essi < 60
+                    else "Индекс близок к стабильной зоне, влияние факторов умеренное."
+                ),
+                "actions": (
+                    "Согласовать индивидуальный план поддержки, проверить нагрузку и коммуникации."
+                    if row.essi < 60
+                    else "Сохранить рабочие практики и провести контрольный замер."
+                ),
             }
         )
     return out
@@ -107,6 +124,13 @@ def build_decision_report(db: Session, *, months: int = 6) -> dict[str, Any]:
                 "title": rec.title,
                 "source": explain["source"],
                 "reasons": explain["structured_reasons"][:4],
+                "what_it_means": "Сигнал, почему показатель устойчивости изменяется.",
+                "reason_text": (
+                    explain["structured_reasons"][0]["detail"]
+                    if explain["structured_reasons"]
+                    else "Недостаточно факторов, использован rule fallback."
+                ),
+                "actions": "Устранить первопричину в блоках с наибольшим вкладом и повторить замер.",
             }
         )
         recommendation_rows.append(
@@ -119,6 +143,13 @@ def build_decision_report(db: Session, *, months: int = 6) -> dict[str, Any]:
                 "source": explain["source"],
                 "expected_effect": explain["expected_effect"],
                 "structured_reasons": explain["structured_reasons"][:4],
+                "what_it_means": "Приоритетная управленческая мера для стабилизации ESSI.",
+                "reason_text": (
+                    explain["structured_reasons"][0]["detail"]
+                    if explain["structured_reasons"]
+                    else "Рекомендация основана на базовых правилах."
+                ),
+                "actions": "Назначить ответственного, срок исполнения и метрику проверки эффекта.",
             }
         )
 
@@ -174,6 +205,9 @@ def build_decision_report(db: Session, *, months: int = 6) -> dict[str, Any]:
                 "title": str(item.get("title", "")),
                 "value": float(item.get("value", 0.0)),
                 "note": "Стабильная опора команды, рекомендуется масштабировать практики.",
+                "what_it_means": "Блок поддерживает устойчивость и снижает управленческую неопределенность.",
+                "reason_text": "Высокое значение блока в сравнении с другими компонентами ESSI.",
+                "actions": "Зафиксировать практики блока и масштабировать их на соседние команды.",
             }
             for item in strongest
         ],

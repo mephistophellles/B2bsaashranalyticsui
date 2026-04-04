@@ -144,6 +144,9 @@ class DecisionStrengthOut(BaseModel):
     title: str
     value: float
     note: str
+    what_it_means: str
+    reason_text: str
+    actions: str
 
 
 class DecisionRiskZoneOut(BaseModel):
@@ -152,12 +155,18 @@ class DecisionRiskZoneOut(BaseModel):
     department: str
     essi: float
     status: str
+    what_it_means: str
+    reason_text: str
+    actions: str
 
 
 class DecisionCauseOut(BaseModel):
     title: str
     source: str
     reasons: list[ExplainReason] = []
+    what_it_means: str
+    reason_text: str
+    actions: str
 
 
 class DecisionRecommendationOut(BaseModel):
@@ -169,6 +178,9 @@ class DecisionRecommendationOut(BaseModel):
     source: str | None = None
     expected_effect: str | None = None
     structured_reasons: list[ExplainReason] = []
+    what_it_means: str
+    reason_text: str
+    actions: str
 
 
 class DecisionEconomicEffectOut(BaseModel):

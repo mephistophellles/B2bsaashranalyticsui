@@ -335,20 +335,22 @@ def _render_decision_pdf(path_pdf: str, decision: dict) -> None:
     story.append(Spacer(1, 8))
 
     story.append(Paragraph("3) Сильные стороны", section_style))
-    strengths_rows = [["Блок", "Значение", "Комментарий"]]
+    strengths_rows = [["Блок", "Значение", "Что означает", "Причина", "Действия"]]
     for row in decision.get("strengths", []):
         strengths_rows.append(
             [
                 as_text(row.get("title")),
                 as_text(row.get("value")),
-                as_text(row.get("note")),
+                as_text(row.get("what_it_means")),
+                as_text(row.get("reason_text")),
+                as_text(row.get("actions")),
             ]
         )
-    story.append(key_value_table(strengths_rows, col_widths=[160, 90, 250]))
+    story.append(key_value_table(strengths_rows, col_widths=[95, 52, 118, 118, 117]))
     story.append(Spacer(1, 8))
 
     story.append(Paragraph("4) Зоны риска", section_style))
-    risk_rows = [["Сотрудник", "Отдел", "ESSI", "Статус"]]
+    risk_rows = [["Сотрудник", "Отдел", "ESSI", "Статус", "Что означает", "Причина", "Действия"]]
     for row in decision.get("risk_zones", []):
         risk_rows.append(
             [
@@ -356,13 +358,16 @@ def _render_decision_pdf(path_pdf: str, decision: dict) -> None:
                 as_text(row.get("department")),
                 as_text(row.get("essi")),
                 as_text(row.get("status")),
+                as_text(row.get("what_it_means")),
+                as_text(row.get("reason_text")),
+                as_text(row.get("actions")),
             ]
         )
-    story.append(key_value_table(risk_rows, col_widths=[160, 150, 70, 120]))
+    story.append(key_value_table(risk_rows, col_widths=[65, 60, 35, 50, 94, 94, 102]))
     story.append(PageBreak())
 
     story.append(Paragraph("5) Причины", section_style))
-    cause_rows = [["Кейс", "Источник", "Фактор", "Деталь"]]
+    cause_rows = [["Кейс", "Источник", "Фактор", "Что означает", "Причина", "Действия"]]
     for item in decision.get("causes", [])[:6]:
         reasons = item.get("reasons", [])[:3]
         if not reasons:
@@ -371,7 +376,9 @@ def _render_decision_pdf(path_pdf: str, decision: dict) -> None:
                     as_text(item.get("title")),
                     as_text(item.get("source")),
                     "—",
-                    "—",
+                    as_text(item.get("what_it_means")),
+                    as_text(item.get("reason_text")),
+                    as_text(item.get("actions")),
                 ]
             )
             continue
@@ -381,24 +388,28 @@ def _render_decision_pdf(path_pdf: str, decision: dict) -> None:
                     as_text(item.get("title")) if idx == 0 else "",
                     as_text(item.get("source")) if idx == 0 else "",
                     as_text(reason.get("label")),
-                    as_text(reason.get("detail")),
+                    as_text(item.get("what_it_means")) if idx == 0 else "",
+                    as_text(item.get("reason_text")) if idx == 0 else "",
+                    as_text(item.get("actions")) if idx == 0 else "",
                 ]
             )
-    story.append(key_value_table(cause_rows, col_widths=[150, 70, 120, 160]))
+    story.append(key_value_table(cause_rows, col_widths=[90, 45, 70, 95, 95, 111]))
     story.append(Spacer(1, 8))
 
     story.append(Paragraph("6) Рекомендации", section_style))
-    rec_rows = [["Рекомендация", "Приоритет", "Статус", "Ожидаемый эффект"]]
+    rec_rows = [["Рекомендация", "Приоритет", "Статус", "Что означает", "Причина", "Действия"]]
     for row in decision.get("recommendations", [])[:8]:
         rec_rows.append(
             [
                 as_text(row.get("title")),
                 as_text(row.get("priority")),
                 as_text(row.get("status")),
-                as_text(row.get("expected_effect")),
+                as_text(row.get("what_it_means")),
+                as_text(row.get("reason_text")),
+                as_text(row.get("actions")),
             ]
         )
-    story.append(key_value_table(rec_rows, col_widths=[170, 70, 80, 200]))
+    story.append(key_value_table(rec_rows, col_widths=[95, 50, 50, 96, 96, 119]))
     story.append(Spacer(1, 8))
 
     eco = decision.get("economic_effect", {})
@@ -567,6 +578,22 @@ def run_report_export(report_id: int) -> None:
                                 "Фактор": reason.get("label"),
                                 "Деталь": reason.get("detail"),
                                 "Вес": reason.get("weight"),
+                                "Что означает": item.get("what_it_means") or "—",
+                                "Причина": item.get("reason_text") or "—",
+                                "Действия": item.get("actions") or "—",
+                            }
+                        )
+                    if not item.get("reasons"):
+                        cause_rows.append(
+                            {
+                                "Причина для": item["title"],
+                                "Источник": item["source"],
+                                "Фактор": "—",
+                                "Деталь": "—",
+                                "Вес": "—",
+                                "Что означает": item.get("what_it_means") or "—",
+                                "Причина": item.get("reason_text") or "—",
+                                "Действия": item.get("actions") or "—",
                             }
                         )
                 pd.DataFrame(cause_rows).to_excel(writer, sheet_name="Causes", index=False)
@@ -580,6 +607,9 @@ def run_report_export(report_id: int) -> None:
                             "Статус": item["status"],
                             "Источник": item.get("source"),
                             "Ожидаемый эффект": item.get("expected_effect"),
+                            "Что означает": item.get("what_it_means") or "—",
+                            "Причина": item.get("reason_text") or "—",
+                            "Действия": item.get("actions") or "—",
                         }
                     )
                 pd.DataFrame(rec_rows).to_excel(writer, sheet_name="Recommendations", index=False)
