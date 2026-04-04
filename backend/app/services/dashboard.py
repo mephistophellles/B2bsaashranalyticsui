@@ -5,6 +5,7 @@ from app.data.survey_methodology import METHODOLOGY_BLOCK_TITLES
 from app.models import Department, Employee, IndexRecord, Recommendation, Survey, User
 from app.privacy import mask_display_name
 from app.services.essi import block_percentage, block_scores_from_survey, essi_from_blocks, organization_avg_essi
+from app.services.explainability import build_recommendation_explainability, infer_predicted_delta_from_text
 
 
 MONTHS_RU = {
@@ -282,16 +283,27 @@ def build_dashboard(
             break
 
     recs = db.query(Recommendation).order_by(Recommendation.created_at.desc()).limit(3).all()
-    rec_preview = [
-        {
+
+    def _rec_preview_row(r: Recommendation) -> dict:
+        explain = build_recommendation_explainability(
+            r,
+            audience="manager",
+            block_percentages=block_pcts,
+            predicted_delta=infer_predicted_delta_from_text(r.text),
+        )
+        return {
             "id": str(r.id),
             "title": r.title,
             "description": r.text[:200],
             "priority": r.priority,
             "status": r.status,
+            "source": explain["source"],
+            "rationale": explain["rationale"],
+            "expected_effect": explain["expected_effect"],
+            "structured_reasons": explain["structured_reasons"],
         }
-        for r in recs
-    ]
+
+    rec_preview = [_rec_preview_row(r) for r in recs]
 
     risk_crisis_count = sum(1 for ir in latest_idx.values() if ir.essi < 40)
     risk_zone_count = sum(1 for ir in latest_idx.values() if 40 <= ir.essi < 60)

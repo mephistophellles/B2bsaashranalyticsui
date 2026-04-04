@@ -137,6 +137,303 @@ def parse_and_validate_survey_import_file(
     return normalized
 
 
+def _register_pdf_font() -> str:
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
+
+    font_name = "PotenkorCyr"
+    font_candidates = [
+        os.getenv("REPORT_FONT_PATH"),
+        r"C:\Windows\Fonts\arial.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/dejavu/DejaVuSans.ttf",
+    ]
+    font_path = next((p for p in font_candidates if p and os.path.isfile(p)), None)
+    if not font_path:
+        raise RuntimeError(
+            "Не найден шрифт с поддержкой кириллицы для PDF. "
+            "Укажите REPORT_FONT_PATH или установите DejaVuSans/Arial."
+        )
+    if font_name not in pdfmetrics.getRegisteredFontNames():
+        pdfmetrics.registerFont(TTFont(font_name, font_path))
+    return font_name
+
+
+def _render_decision_pdf(path_pdf: str, decision: dict) -> None:
+    from xml.sax.saxutils import escape
+
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+    from reportlab.platypus import PageBreak, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+
+    font_name = _register_pdf_font()
+    doc = SimpleDocTemplate(
+        path_pdf,
+        pagesize=A4,
+        leftMargin=34,
+        rightMargin=34,
+        topMargin=40,
+        bottomMargin=38,
+        title="Потенкор Decision-report",
+    )
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        "ExecTitle",
+        parent=styles["Title"],
+        fontName=font_name,
+        fontSize=20,
+        leading=24,
+        spaceAfter=10,
+    )
+    subtitle_style = ParagraphStyle(
+        "ExecSubTitle",
+        parent=styles["Normal"],
+        fontName=font_name,
+        fontSize=11,
+        leading=14,
+        textColor=colors.HexColor("#475569"),
+    )
+    section_style = ParagraphStyle(
+        "ExecSection",
+        parent=styles["Heading2"],
+        fontName=font_name,
+        fontSize=13,
+        leading=16,
+        spaceBefore=8,
+        spaceAfter=6,
+    )
+    body_style = ParagraphStyle(
+        "ExecBody",
+        parent=styles["Normal"],
+        fontName=font_name,
+        fontSize=10,
+        leading=13,
+    )
+    header_cell_style = ParagraphStyle(
+        "ExecHeaderCell",
+        parent=styles["Normal"],
+        fontName=font_name,
+        fontSize=8.5,
+        leading=11,
+        textColor=colors.HexColor("#0F172A"),
+        wordWrap="CJK",
+    )
+    body_cell_style = ParagraphStyle(
+        "ExecBodyCell",
+        parent=styles["Normal"],
+        fontName=font_name,
+        fontSize=8.5,
+        leading=11,
+        textColor=colors.HexColor("#1F2937"),
+        wordWrap="CJK",
+    )
+
+    def key_value_table(rows: list[list[object]], col_widths: list[int] | None = None) -> Table:
+        styled_rows: list[list[object]] = []
+        for ridx, row in enumerate(rows):
+            row_cells: list[object] = []
+            for cell in row:
+                safe_text = escape("—" if cell is None or cell == "" else str(cell))
+                row_cells.append(
+                    Paragraph(
+                        safe_text,
+                        header_cell_style if ridx == 0 else body_cell_style,
+                    )
+                )
+            styled_rows.append(row_cells)
+        table = Table(
+            styled_rows,
+            colWidths=col_widths,
+            repeatRows=1,
+            hAlign="LEFT",
+            splitByRow=1,
+        )
+        table.setStyle(
+            TableStyle(
+                [
+                    ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#E2E8F0")),
+                    ("TEXTCOLOR", (0, 0), (-1, 0), colors.HexColor("#0F172A")),
+                    ("ALIGN", (0, 0), (-1, 0), "LEFT"),
+                    ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                    ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#CBD5E1")),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 5),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 5),
+                    ("TOPPADDING", (0, 0), (-1, -1), 3),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+                ]
+            )
+        )
+        return table
+
+    def as_text(value: object) -> str:
+        return "—" if value is None or value == "" else str(value)
+
+    story = [
+        Paragraph("ПОТЕНКОР", title_style),
+        Paragraph("Decision-report для управленческих решений", subtitle_style),
+        Spacer(1, 12),
+        Paragraph(f"Сформировано: {as_text(decision.get('generated_at'))}", body_style),
+        Paragraph(f"Период анализа: {as_text(decision.get('months'))} мес.", body_style),
+        Spacer(1, 10),
+        Paragraph("Executive summary", section_style),
+    ]
+    for item in decision.get("overview", {}).get("summary", []):
+        story.append(Paragraph(f"- {item}", body_style))
+    story.append(PageBreak())
+
+    story.append(Paragraph("Оглавление", section_style))
+    toc_items = [
+        "1. Общая ситуация",
+        "2. Динамика",
+        "3. Сильные стороны",
+        "4. Зоны риска",
+        "5. Причины",
+        "6. Рекомендации",
+        "7. Экономический эффект",
+    ]
+    for item in toc_items:
+        story.append(Paragraph(item, body_style))
+    story.append(PageBreak())
+
+    overview = decision.get("overview", {})
+    story.append(Paragraph("1) Общая ситуация", section_style))
+    story.append(
+        key_value_table(
+            [
+                ["Метрика", "Значение"],
+                ["ESSI", as_text(overview.get("essi_index"))],
+                ["Дельта ESSI, %", as_text(overview.get("essi_delta_pct"))],
+                ["Вовлеченность, %", as_text(overview.get("engagement_pct"))],
+                ["Продуктивность, %", as_text(overview.get("productivity_pct"))],
+                ["Уровень риска", as_text(overview.get("risk_level"))],
+                ["Сотрудников в зоне риска", as_text(overview.get("risk_at_risk_total"))],
+            ],
+            col_widths=[220, 280],
+        )
+    )
+    story.append(Spacer(1, 8))
+
+    dynamics = decision.get("dynamics", {})
+    story.append(Paragraph("2) Динамика", section_style))
+    story.append(
+        Paragraph(
+            (
+                f"Период: {as_text(dynamics.get('months'))} мес.; "
+                f"текущее значение: {as_text(dynamics.get('latest_value'))}; "
+                f"предыдущее: {as_text(dynamics.get('previous_value'))}; "
+                f"дельта: {as_text(dynamics.get('delta_pct'))}%."
+            ),
+            body_style,
+        )
+    )
+    series_rows = [["Месяц", "ESSI"]]
+    for point in dynamics.get("essi_series", []):
+        series_rows.append([as_text(point.get("month")), as_text(point.get("value"))])
+    story.append(Spacer(1, 5))
+    story.append(key_value_table(series_rows, col_widths=[240, 120]))
+    story.append(Spacer(1, 8))
+
+    story.append(Paragraph("3) Сильные стороны", section_style))
+    strengths_rows = [["Блок", "Значение", "Комментарий"]]
+    for row in decision.get("strengths", []):
+        strengths_rows.append(
+            [
+                as_text(row.get("title")),
+                as_text(row.get("value")),
+                as_text(row.get("note")),
+            ]
+        )
+    story.append(key_value_table(strengths_rows, col_widths=[160, 90, 250]))
+    story.append(Spacer(1, 8))
+
+    story.append(Paragraph("4) Зоны риска", section_style))
+    risk_rows = [["Сотрудник", "Отдел", "ESSI", "Статус"]]
+    for row in decision.get("risk_zones", []):
+        risk_rows.append(
+            [
+                as_text(row.get("name")),
+                as_text(row.get("department")),
+                as_text(row.get("essi")),
+                as_text(row.get("status")),
+            ]
+        )
+    story.append(key_value_table(risk_rows, col_widths=[160, 150, 70, 120]))
+    story.append(PageBreak())
+
+    story.append(Paragraph("5) Причины", section_style))
+    cause_rows = [["Кейс", "Источник", "Фактор", "Деталь"]]
+    for item in decision.get("causes", [])[:6]:
+        reasons = item.get("reasons", [])[:3]
+        if not reasons:
+            cause_rows.append(
+                [
+                    as_text(item.get("title")),
+                    as_text(item.get("source")),
+                    "—",
+                    "—",
+                ]
+            )
+            continue
+        for idx, reason in enumerate(reasons):
+            cause_rows.append(
+                [
+                    as_text(item.get("title")) if idx == 0 else "",
+                    as_text(item.get("source")) if idx == 0 else "",
+                    as_text(reason.get("label")),
+                    as_text(reason.get("detail")),
+                ]
+            )
+    story.append(key_value_table(cause_rows, col_widths=[150, 70, 120, 160]))
+    story.append(Spacer(1, 8))
+
+    story.append(Paragraph("6) Рекомендации", section_style))
+    rec_rows = [["Рекомендация", "Приоритет", "Статус", "Ожидаемый эффект"]]
+    for row in decision.get("recommendations", [])[:8]:
+        rec_rows.append(
+            [
+                as_text(row.get("title")),
+                as_text(row.get("priority")),
+                as_text(row.get("status")),
+                as_text(row.get("expected_effect")),
+            ]
+        )
+    story.append(key_value_table(rec_rows, col_widths=[170, 70, 80, 200]))
+    story.append(Spacer(1, 8))
+
+    eco = decision.get("economic_effect", {})
+    story.append(Paragraph("7) Экономический эффект", section_style))
+    story.append(
+        key_value_table(
+            [
+                ["Метрика", "Значение"],
+                ["ESSI", as_text(eco.get("essi_score"))],
+                ["ФОТ", as_text(eco.get("fot"))],
+                ["k", as_text(eco.get("k"))],
+                ["C_replace", as_text(eco.get("c_replace"))],
+                ["Ушедших", as_text(eco.get("departed_count"))],
+                ["Потери эффективности", as_text(eco.get("loss_efficiency"))],
+                ["Потери текучести", as_text(eco.get("loss_turnover"))],
+                ["Итого потерь", as_text(eco.get("loss_total"))],
+            ],
+            col_widths=[220, 280],
+        )
+    )
+    story.append(Spacer(1, 6))
+    for item in eco.get("assumptions", []):
+        story.append(Paragraph(f"- {item}", body_style))
+
+    def draw_footer(canvas_obj, doc_obj) -> None:
+        canvas_obj.saveState()
+        canvas_obj.setFont(font_name, 8)
+        canvas_obj.setFillColor(colors.HexColor("#64748B"))
+        canvas_obj.drawString(34, 20, "ПОТЕНКОР · Decision-report")
+        canvas_obj.drawRightString(A4[0] - 34, 20, f"Стр. {doc_obj.page}")
+        canvas_obj.restoreState()
+
+    doc.build(story, onFirstPage=draw_footer, onLaterPages=draw_footer)
+
+
 def process_survey_import(
     job_id: int,
     file_path: str,
@@ -239,83 +536,77 @@ def run_report_export(report_id: int) -> None:
         tmpdir = os.path.join(tempfile.gettempdir(), "potential_reports")
         os.makedirs(tmpdir, exist_ok=True)
 
-        if rep.kind in ("summary_excel", "excel"):
-            from app.services.dashboard import organization_block_percentages
-            from app.services.essi import organization_avg_essi
+        from app.services.decision_report import build_decision_report
 
+        decision = build_decision_report(db, months=6)
+        kind = rep.kind or "summary"
+        want_excel = kind in ("summary_excel", "excel", "decision_excel")
+        if want_excel:
             path_xlsx = os.path.join(tmpdir, f"report_{report_id}.xlsx")
-            avg = organization_avg_essi(db)
-            rows = [
-                {
-                    "Показатель": "Средний ESSI организации",
-                    "Значение": avg if avg is not None else "",
-                    "Комментарий": "Процент от максимума по методике",
-                }
-            ]
-            for block in organization_block_percentages(db):
-                rows.append(
-                    {
-                        "Показатель": f"{block['title']}",
-                        "Значение": block["value"],
-                        "Комментарий": "Процент от максимума по блоку (score_blockX / 25 × 100)",
-                    }
+            with pd.ExcelWriter(path_xlsx, engine="openpyxl") as writer:
+                pd.DataFrame(
+                    [
+                        {"Показатель": "ESSI", "Значение": decision["overview"]["essi_index"]},
+                        {"Показатель": "Дельта ESSI, %", "Значение": decision["overview"]["essi_delta_pct"]},
+                        {"Показатель": "Уровень риска", "Значение": decision["overview"]["risk_level"]},
+                        {"Показатель": "В зоне риска", "Значение": decision["overview"]["risk_at_risk_total"]},
+                    ]
+                ).to_excel(writer, sheet_name="Overview", index=False)
+                pd.DataFrame(decision["dynamics"]["essi_series"]).to_excel(
+                    writer, sheet_name="Dynamics", index=False
                 )
-            rows.append(
-                {
-                    "Показатель": "Сформировано",
-                    "Значение": datetime.utcnow().isoformat(),
-                    "Комментарий": "",
-                }
-            )
-            pd.DataFrame(rows).to_excel(path_xlsx, index=False)
+                pd.DataFrame(decision["strengths"]).to_excel(writer, sheet_name="Strengths", index=False)
+                pd.DataFrame(decision["risk_zones"]).to_excel(writer, sheet_name="RiskZones", index=False)
+                cause_rows = []
+                for item in decision["causes"]:
+                    for reason in item.get("reasons", []):
+                        cause_rows.append(
+                            {
+                                "Причина для": item["title"],
+                                "Источник": item["source"],
+                                "Фактор": reason.get("label"),
+                                "Деталь": reason.get("detail"),
+                                "Вес": reason.get("weight"),
+                            }
+                        )
+                pd.DataFrame(cause_rows).to_excel(writer, sheet_name="Causes", index=False)
+                rec_rows = []
+                for item in decision["recommendations"]:
+                    rec_rows.append(
+                        {
+                            "ID": item["id"],
+                            "Рекомендация": item["title"],
+                            "Приоритет": item["priority"],
+                            "Статус": item["status"],
+                            "Источник": item.get("source"),
+                            "Ожидаемый эффект": item.get("expected_effect"),
+                        }
+                    )
+                pd.DataFrame(rec_rows).to_excel(writer, sheet_name="Recommendations", index=False)
+                pd.DataFrame(
+                    [
+                        {
+                            "ESSI": decision["economic_effect"]["essi_score"],
+                            "ФОТ": decision["economic_effect"]["fot"],
+                            "k": decision["economic_effect"]["k"],
+                            "C_replace": decision["economic_effect"]["c_replace"],
+                            "Ушедших": decision["economic_effect"]["departed_count"],
+                            "Потери эффективности": decision["economic_effect"]["loss_efficiency"],
+                            "Потери текучести": decision["economic_effect"]["loss_turnover"],
+                            "Итого потерь": decision["economic_effect"]["loss_total"],
+                        }
+                    ]
+                ).to_excel(writer, sheet_name="EconomicEffect", index=False)
             rep.status = JobStatus.success
             rep.file_path = path_xlsx
-            rep.detail = "Excel generated"
+            rep.detail = "Decision Excel generated"
             log.info("report_export report_id=%s success format=xlsx", report_id)
         else:
             path_pdf = os.path.join(tmpdir, f"report_{report_id}.pdf")
-            from app.services.dashboard import organization_block_percentages
-            from app.services.essi import organization_avg_essi
-            from reportlab.lib.pagesizes import A4
-            from reportlab.pdfbase import pdfmetrics
-            from reportlab.pdfbase.ttfonts import TTFont
-            from reportlab.pdfgen import canvas
-
-            c = canvas.Canvas(path_pdf, pagesize=A4)
-            font_name = "PotenkorCyr"
-            font_candidates = [
-                os.getenv("REPORT_FONT_PATH"),
-                r"C:\Windows\Fonts\arial.ttf",
-                "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-                "/usr/share/fonts/dejavu/DejaVuSans.ttf",
-            ]
-            font_path = next((p for p in font_candidates if p and os.path.isfile(p)), None)
-            if not font_path:
-                raise RuntimeError(
-                    "Не найден шрифт с поддержкой кириллицы для PDF. "
-                    "Укажите REPORT_FONT_PATH или установите DejaVuSans/Arial."
-                )
-            if font_name not in pdfmetrics.getRegisteredFontNames():
-                pdfmetrics.registerFont(TTFont(font_name, font_path))
-            c.setFont(font_name, 11)
-            c.drawString(100, 800, "ПОТЕНКОР — сводный отчёт")
-            c.drawString(
-                100,
-                780,
-                "ESSI: сумма score_block1..5 / 125 × 100, процент от максимума по методике.",
-            )
-            avg = organization_avg_essi(db)
-            c.drawString(100, 760, f"Средний ESSI организации: {avg if avg is not None else '—'}")
-            y = 740
-            for block in organization_block_percentages(db):
-                c.drawString(100, y, f"{METHODOLOGY_BLOCK_TITLES[block['block_index']]}: {block['value']}%")
-                y -= 20
-            c.drawString(100, y - 10, datetime.utcnow().isoformat())
-            c.showPage()
-            c.save()
+            _render_decision_pdf(path_pdf, decision)
             rep.status = JobStatus.success
             rep.file_path = path_pdf
-            rep.detail = "PDF generated"
+            rep.detail = "Decision PDF generated"
             log.info("report_export report_id=%s success format=pdf", report_id)
         db.commit()
     except Exception as e:

@@ -231,9 +231,6 @@ export default function Dashboard() {
             </div>
             <span className="text-xs text-gray-500">к прошлому периоду</span>
           </div>
-          <p className="text-xs text-gray-500 mt-2 leading-relaxed">
-            Индекс отражает текущее состояние устойчивости персонала и помогает выявлять зоны риска и точки роста.
-          </p>
           <div className="mt-3" style={{ height: 48 }}>
             <ResponsiveContainer width="100%" height={48}>
               <AreaChart data={essiData}>
@@ -336,10 +333,6 @@ export default function Dashboard() {
               </>
             )}
             .
-          </p>
-          <p className="text-xs text-gray-500 mt-1 leading-relaxed">
-            Количество сотрудников, чье состояние требует дополнительного анализа, сформировано на основе
-            совокупности показателей и динамики.
           </p>
           <p className="text-xs text-gray-500 mt-1">
             Кризис (&lt;40): {data.risk_crisis_count} · Зона риска (40–60): {data.risk_zone_count}

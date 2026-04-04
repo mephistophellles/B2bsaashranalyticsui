@@ -22,6 +22,7 @@ from app.services.dashboard import (
     status_from_essi,
 )
 from app.services.essi import block_percentages, essi_from_blocks
+from app.services.explainability import build_recommendation_explainability
 
 router = APIRouter(prefix="/employees", tags=["employees"])
 
@@ -227,6 +228,7 @@ def employee_breakdown(
                 "status": r.status,
                 "created_at": r.created_at,
                 "model_version": r.model_version,
+                **build_recommendation_explainability(r, audience="manager"),
             }
             for r in recs
         ],

@@ -64,12 +64,24 @@ class DashboardEmployeeRow(BaseModel):
     status: str
 
 
+class ExplainReason(BaseModel):
+    code: str
+    label: str
+    detail: str
+    weight: float
+    source_type: str
+
+
 class DashboardRecommendation(BaseModel):
     id: str
     title: str
     description: str
     priority: str
     status: str
+    source: str | None = None
+    rationale: str | None = None
+    expected_effect: str | None = None
+    structured_reasons: list[ExplainReason] = []
 
 
 class BlockMetricOut(BaseModel):
@@ -78,6 +90,7 @@ class BlockMetricOut(BaseModel):
     value: float
     interpretation: str
     action_hint: str
+    structured_reasons: list[ExplainReason] = []
 
 
 class DashboardBlockPercentage(BaseModel):
@@ -105,6 +118,81 @@ class DashboardResponse(BaseModel):
     department_bars: list[DashboardDepartmentBar]
     recent_employees: list[DashboardEmployeeRow]
     recommendations_preview: list[DashboardRecommendation]
+
+
+class DecisionOverviewOut(BaseModel):
+    essi_index: float
+    essi_delta_pct: float
+    engagement_pct: float
+    productivity_pct: float
+    risk_level: str
+    risk_at_risk_total: int
+    risk_indexed_employees: int
+    summary: list[str] = []
+
+
+class DecisionDynamicsOut(BaseModel):
+    months: int
+    essi_series: list[DashboardSeriesPoint]
+    latest_value: float
+    previous_value: float
+    delta_pct: float
+
+
+class DecisionStrengthOut(BaseModel):
+    block_index: int
+    title: str
+    value: float
+    note: str
+
+
+class DecisionRiskZoneOut(BaseModel):
+    id: str
+    name: str
+    department: str
+    essi: float
+    status: str
+
+
+class DecisionCauseOut(BaseModel):
+    title: str
+    source: str
+    reasons: list[ExplainReason] = []
+
+
+class DecisionRecommendationOut(BaseModel):
+    id: int
+    title: str
+    description: str
+    priority: str
+    status: str
+    source: str | None = None
+    expected_effect: str | None = None
+    structured_reasons: list[ExplainReason] = []
+
+
+class DecisionEconomicEffectOut(BaseModel):
+    essi_score: float
+    fot: float | None = None
+    k: float | None = None
+    c_replace: float | None = None
+    departed_count: int | None = None
+    loss_efficiency: float | None = None
+    loss_turnover: float | None = None
+    loss_total: float | None = None
+    assumptions: list[str] = []
+
+
+class DecisionReportPayload(BaseModel):
+    generated_at: datetime
+    months: int
+    overview: DecisionOverviewOut
+    dynamics: DecisionDynamicsOut
+    strengths: list[DecisionStrengthOut] = []
+    risk_zones: list[DecisionRiskZoneOut] = []
+    causes: list[DecisionCauseOut] = []
+    recommendations: list[DecisionRecommendationOut] = []
+    economic_effect: DecisionEconomicEffectOut
 
 
 class SurveyBlockAnswer(BaseModel):
@@ -185,6 +273,9 @@ class RecommendationOut(BaseModel):
     source: str | None = None
     rationale: str | None = None
     expected_effect: str | None = None
+    rule_drivers: list[ExplainReason] = []
+    ml_drivers: list[ExplainReason] = []
+    structured_reasons: list[ExplainReason] = []
 
     model_config = {"from_attributes": True}
 

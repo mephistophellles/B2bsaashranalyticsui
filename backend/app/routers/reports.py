@@ -12,6 +12,7 @@ from app.dependencies import audit, get_current_user, require_roles
 from app.models import JobStatus, ManagementEvent, ReportExport, User, UserRole
 from app.schemas import (
     DashboardResponse,
+    DecisionReportPayload,
     ManagementEventCreate,
     ManagementEventOut,
     ManagementEventPatch,
@@ -21,6 +22,7 @@ from app.schemas import (
     ReportExportOut,
 )
 from app.services.dashboard import build_dashboard
+from app.services.decision_report import build_decision_report
 
 router = APIRouter(prefix="/reports", tags=["reports"])
 
@@ -35,6 +37,18 @@ def dashboard(
         raise HTTPException(status_code=403, detail="Forbidden")
     data = build_dashboard(db, viewer=user, essi_months=months)
     return DashboardResponse.model_validate(data)
+
+
+@router.get("/decision", response_model=DecisionReportPayload)
+def decision_report(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+    months: int = Query(6, ge=3, le=24, description="Число последних месяцев для decision-report"),
+):
+    if user.role == UserRole.employee:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    payload = build_decision_report(db, months=months)
+    return DecisionReportPayload.model_validate(payload)
 
 
 @router.get("/events", response_model=list[ManagementEventOut])

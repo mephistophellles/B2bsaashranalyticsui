@@ -29,6 +29,58 @@ type ManagementEvent = {
   level: "organization" | "department";
   department_id: number | null;
 };
+type ExplainReason = {
+  code: string;
+  label: string;
+  detail: string;
+  weight: number;
+  source_type: string;
+};
+type DecisionPayload = {
+  generated_at: string;
+  months: number;
+  overview: {
+    essi_index: number;
+    essi_delta_pct: number;
+    engagement_pct: number;
+    productivity_pct: number;
+    risk_level: string;
+    risk_at_risk_total: number;
+    risk_indexed_employees: number;
+    summary: string[];
+  };
+  dynamics: {
+    months: number;
+    essi_series: { id: string; month: string; value: number }[];
+    latest_value: number;
+    previous_value: number;
+    delta_pct: number;
+  };
+  strengths: { block_index: number; title: string; value: number; note: string }[];
+  risk_zones: { id: string; name: string; department: string; essi: number; status: string }[];
+  causes: { title: string; source: string; reasons: ExplainReason[] }[];
+  recommendations: {
+    id: number;
+    title: string;
+    description: string;
+    priority: string;
+    status: string;
+    source?: string | null;
+    expected_effect?: string | null;
+    structured_reasons: ExplainReason[];
+  }[];
+  economic_effect: {
+    essi_score: number;
+    fot: number | null;
+    k: number | null;
+    c_replace: number | null;
+    departed_count: number | null;
+    loss_efficiency: number | null;
+    loss_turnover: number | null;
+    loss_total: number | null;
+    assumptions: string[];
+  };
+};
 
 async function pollJob(jobId: number): Promise<JobRow> {
   for (let i = 0; i < 120; i++) {
@@ -79,6 +131,9 @@ export default function Reports() {
   const [jobHistory, setJobHistory] = useState<JobRow[]>([]);
   const [exportHistory, setExportHistory] = useState<ExportRow[]>([]);
   const [events, setEvents] = useState<ManagementEvent[]>([]);
+  const [decision, setDecision] = useState<DecisionPayload | null>(null);
+  const [decisionMonths, setDecisionMonths] = useState(6);
+  const [decisionErr, setDecisionErr] = useState<string | null>(null);
   const [eventBusy, setEventBusy] = useState(false);
   const [eventForm, setEventForm] = useState({
     event_date: new Date().toISOString().slice(0, 10),
@@ -109,6 +164,17 @@ export default function Reports() {
     }
   }
 
+  async function loadDecision(months = decisionMonths) {
+    setDecisionErr(null);
+    const res = await apiFetch(`/reports/decision?months=${months}`);
+    if (!res.ok) {
+      setDecisionErr(await parseErrorMessage(res));
+      setDecision(null);
+      return;
+    }
+    setDecision((await res.json()) as DecisionPayload);
+  }
+
   useEffect(() => {
     void (async () => {
       const res = await apiFetch("/economy/defaults");
@@ -124,8 +190,13 @@ export default function Reports() {
           typeof j.draft_departed_count === "number" ? j.draft_departed_count : e.departed_count,
       }));
     })();
+    void loadDecision();
     void loadHistory();
   }, []);
+
+  useEffect(() => {
+    void loadDecision(decisionMonths);
+  }, [decisionMonths]);
 
   async function onUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
@@ -160,7 +231,7 @@ export default function Reports() {
     }
   }
 
-  async function generateReport(kind: "summary" | "summary_excel") {
+  async function generateReport(kind: "decision_pdf" | "decision_excel") {
     setReportBusy(true);
     setReportStatus(null);
     setReadyReportId(null);
@@ -181,7 +252,7 @@ export default function Reports() {
         return;
       }
       setReadyReportId(j.id);
-      setReadyReportExt(kind === "summary_excel" ? "xlsx" : "pdf");
+      setReadyReportExt(kind === "decision_excel" ? "xlsx" : "pdf");
       setReportStatus("Готово к скачиванию");
       await loadHistory();
     } catch (err) {
@@ -217,7 +288,7 @@ export default function Reports() {
         setReportStatus(`Ошибка: ${done.detail ?? "сбой"}`);
       } else {
         setReadyReportId(j.id);
-        setReadyReportExt((j.kind === "summary_excel" || j.kind === "excel") ? "xlsx" : "pdf");
+        setReadyReportExt((j.kind === "decision_excel" || j.kind === "summary_excel" || j.kind === "excel") ? "xlsx" : "pdf");
         setReportStatus("Готово к скачиванию");
       }
       await loadHistory();
@@ -326,6 +397,130 @@ export default function Reports() {
         </div>
       </div>
 
+      <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-lg font-semibold text-gray-900">Decision-report</h2>
+          <label className="text-sm text-gray-600 flex items-center gap-2">
+            Период
+            <select
+              className="border rounded-xl px-2 py-1.5 bg-white"
+              value={decisionMonths}
+              onChange={(e) => setDecisionMonths(Number(e.target.value))}
+            >
+              {[3, 6, 12, 24].map((m) => (
+                <option key={m} value={m}>{m} мес.</option>
+              ))}
+            </select>
+          </label>
+        </div>
+        {decisionErr && <p className="text-sm text-red-600">{decisionErr}</p>}
+        {!decisionErr && !decision && <p className="text-sm text-gray-500">Загрузка decision-report…</p>}
+        {decision && (
+          <div className="space-y-6">
+            <section className="rounded-xl border border-gray-200 p-4">
+              <h3 className="font-semibold text-gray-900 mb-2">1) Общая ситуация</h3>
+              <div className="grid md:grid-cols-4 gap-3 text-sm">
+                <div className="rounded-lg border border-gray-200 px-3 py-2">ESSI: <span className="font-semibold">{decision.overview.essi_index}</span></div>
+                <div className="rounded-lg border border-gray-200 px-3 py-2">Дельта: <span className="font-semibold">{decision.overview.essi_delta_pct}%</span></div>
+                <div className="rounded-lg border border-gray-200 px-3 py-2">Риск: <span className="font-semibold">{decision.overview.risk_level}</span></div>
+                <div className="rounded-lg border border-gray-200 px-3 py-2">В зоне риска: <span className="font-semibold">{decision.overview.risk_at_risk_total}</span></div>
+              </div>
+              <ul className="mt-3 space-y-1 text-sm text-gray-700">
+                {decision.overview.summary.map((s) => <li key={s}>- {s}</li>)}
+              </ul>
+            </section>
+
+            <section className="rounded-xl border border-gray-200 p-4">
+              <h3 className="font-semibold text-gray-900 mb-2">2) Динамика</h3>
+              <p className="text-sm text-gray-700 mb-2">
+                Период: {decision.dynamics.months} мес. · Текущее: {decision.dynamics.latest_value} · Предыдущее: {decision.dynamics.previous_value} · Дельта: {decision.dynamics.delta_pct}%
+              </p>
+              <div className="grid md:grid-cols-6 gap-2">
+                {decision.dynamics.essi_series.map((p) => (
+                  <div key={p.id} className="rounded-lg border border-gray-200 px-2 py-2 text-xs text-gray-700">
+                    <div className="font-medium">{p.month}</div>
+                    <div>{p.value}</div>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <section className="rounded-xl border border-gray-200 p-4">
+              <h3 className="font-semibold text-gray-900 mb-2">3) Сильные стороны</h3>
+              <div className="space-y-2">
+                {decision.strengths.map((s) => (
+                  <div key={`${s.block_index}-${s.title}`} className="rounded-lg border border-green-100 bg-green-50 px-3 py-2 text-sm">
+                    <span className="font-medium">{s.title}</span>: {s.value} · {s.note}
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <section className="rounded-xl border border-gray-200 p-4">
+              <h3 className="font-semibold text-gray-900 mb-2">4) Зоны риска</h3>
+              <div className="space-y-2">
+                {decision.risk_zones.map((r) => (
+                  <div key={r.id} className="rounded-lg border border-amber-100 bg-amber-50 px-3 py-2 text-sm">
+                    <span className="font-medium">{r.name}</span> · {r.department} · ESSI {r.essi} · {r.status}
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <section className="rounded-xl border border-gray-200 p-4">
+              <h3 className="font-semibold text-gray-900 mb-2">5) Причины</h3>
+              <div className="space-y-3">
+                {decision.causes.map((c) => (
+                  <div key={c.title} className="rounded-lg border border-gray-200 px-3 py-2">
+                    <div className="text-sm font-medium text-gray-900">{c.title} <span className="text-xs text-gray-500">({c.source})</span></div>
+                    <ul className="mt-1 space-y-1">
+                      {c.reasons.slice(0, 4).map((reason) => (
+                        <li key={`${c.title}-${reason.code}`} className="text-xs text-gray-700">- {reason.label}: {reason.detail}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <section className="rounded-xl border border-gray-200 p-4">
+              <h3 className="font-semibold text-gray-900 mb-2">6) Рекомендации</h3>
+              <div className="space-y-3">
+                {decision.recommendations.map((r) => (
+                  <div key={r.id} className="rounded-lg border border-gray-200 px-3 py-2">
+                    <div className="text-sm font-medium text-gray-900">{r.title}</div>
+                    <div className="text-xs text-gray-500 mt-1">{r.priority} · {r.status} {r.source ? `· ${r.source}` : ""}</div>
+                    {r.expected_effect && <div className="text-xs text-green-700 mt-1">Ожидаемый эффект: {r.expected_effect}</div>}
+                    <ul className="mt-1 space-y-1">
+                      {r.structured_reasons.slice(0, 3).map((reason) => (
+                        <li key={`${r.id}-${reason.code}`} className="text-xs text-gray-700">- {reason.label}: {reason.detail}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <section className="rounded-xl border border-gray-200 p-4">
+              <h3 className="font-semibold text-gray-900 mb-2">7) Экономический эффект</h3>
+              <div className="text-sm text-gray-700 space-y-1">
+                <div>ESSI: {decision.economic_effect.essi_score}</div>
+                <div>Потери эффективности: {decision.economic_effect.loss_efficiency ?? "—"}</div>
+                <div>Потери текучести: {decision.economic_effect.loss_turnover ?? "—"}</div>
+                <div className="font-semibold">Итого: {decision.economic_effect.loss_total ?? "—"}</div>
+              </div>
+              <ul className="mt-2 space-y-1 text-xs text-gray-600">
+                {decision.economic_effect.assumptions.map((a) => <li key={a}>- {a}</li>)}
+              </ul>
+            </section>
+          </div>
+        )}
+      </div>
+
+      <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+        Операции: импорт, пересчёт, экспорт, события и история запусков.
+      </div>
+
       <div className="bg-white rounded-2xl border border-gray-200 p-6 space-y-3 shadow-sm">
         <h2 className="text-lg font-semibold flex items-center gap-2">
           <RefreshCw size={20} /> Пересчёт индексов ESSI
@@ -388,12 +583,12 @@ export default function Reports() {
           <h2 className="text-base font-semibold flex items-center gap-2">
             <FileText size={18} /> Экспорт отчётов
           </h2>
-          <p className="text-xs text-gray-500 leading-snug">Сводка: PDF или Excel, затем скачивание.</p>
+          <p className="text-xs text-gray-500 leading-snug">Decision-report: PDF или Excel, затем скачивание.</p>
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
               disabled={reportBusy}
-              onClick={() => void generateReport("summary")}
+              onClick={() => void generateReport("decision_pdf")}
               className="px-3 py-1.5 text-sm rounded-lg text-white font-medium bg-gradient-to-r from-[#0052FF] to-[#4D7CFF] disabled:opacity-50"
             >
               PDF
@@ -401,7 +596,7 @@ export default function Reports() {
             <button
               type="button"
               disabled={reportBusy}
-              onClick={() => void generateReport("summary_excel")}
+              onClick={() => void generateReport("decision_excel")}
               className="px-3 py-1.5 text-sm rounded-lg border border-[#0052FF] text-[#0052FF] font-medium disabled:opacity-50 hover:bg-blue-50"
             >
               Excel
@@ -687,7 +882,7 @@ export default function Reports() {
                 {exportHistory.map((exp) => (
                   <div key={exp.id} className="rounded-lg border border-gray-200 px-3 py-2 text-sm">
                     <div className="font-medium">
-                      Отчёт #{exp.id} ({exp.kind === "summary_excel" || exp.kind === "excel" ? "Excel" : "PDF"})
+                      Отчёт #{exp.id} ({exp.kind === "decision_excel" || exp.kind === "summary_excel" || exp.kind === "excel" ? "Excel" : "PDF"})
                     </div>
                     <div className="text-xs text-gray-500">
                       Статус: {exp.status} {exp.detail ? `· ${exp.detail}` : ""}
@@ -700,7 +895,7 @@ export default function Reports() {
                           onClick={() =>
                             void downloadWithAuth(
                               exp.download_url!.replace("/api", ""),
-                              `report_${exp.id}.${exp.kind === "summary_excel" || exp.kind === "excel" ? "xlsx" : "pdf"}`,
+                              `report_${exp.id}.${exp.kind === "decision_excel" || exp.kind === "summary_excel" || exp.kind === "excel" ? "xlsx" : "pdf"}`,
                             )
                           }
                         >
