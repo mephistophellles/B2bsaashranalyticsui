@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router";
+import { ClipboardList } from "lucide-react";
 import { apiFetch, parseErrorMessage } from "@/api/client";
 import { useAuth } from "@/auth/AuthContext";
 import EmployeeTrustFAQ from "./EmployeeTrustFAQ";
@@ -150,7 +151,13 @@ export default function Survey() {
   if (!consentOk) {
     return (
       <div className="p-6 max-w-xl space-y-6">
-        <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Согласие на обработку ПДн</h1>
+        <div className="flex flex-wrap items-center gap-2.5">
+          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Согласие на обработку ПДн</h1>
+          <div className="hidden sm:flex items-center gap-2 rounded-2xl border border-blue-100 bg-blue-50 px-3 py-2">
+            <ClipboardList className="text-[#0052FF]" size={16} />
+            <span className="text-xs font-medium text-blue-900">Юридическое подтверждение</span>
+          </div>
+        </div>
         <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm space-y-4 text-sm text-gray-700 leading-relaxed">
           <p>
             Перед прохождением опроса необходимо согласие на обработку персональных данных в соответствии с
@@ -191,7 +198,13 @@ export default function Survey() {
   return (
     <div className="p-6 max-w-2xl space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Опрос ESSI</h1>
+        <div className="flex flex-wrap items-center gap-2.5">
+          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Опрос ESSI</h1>
+          <div className="hidden sm:flex items-center gap-2 rounded-2xl border border-blue-100 bg-blue-50 px-3 py-2">
+            <ClipboardList className="text-[#0052FF]" size={16} />
+            <span className="text-xs font-medium text-blue-900">Диагностика условий труда</span>
+          </div>
+        </div>
         {campaignId != null && (
           <p className="text-sm text-[#0052FF] font-medium mt-1">Кампания #{campaignId}</p>
         )}

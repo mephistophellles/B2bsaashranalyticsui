@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
+import { ShieldCheck } from "lucide-react";
 import { apiFetch, parseErrorMessage } from "@/api/client";
 
 type ConsentStatus = {
@@ -51,7 +52,13 @@ export default function Consent() {
       </div>
 
       <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm space-y-4">
-        <h1 className="text-2xl font-bold text-gray-900">Согласие на обработку персональных данных</h1>
+        <div className="flex flex-wrap items-center gap-2.5">
+          <h1 className="text-2xl font-bold text-gray-900">Согласие на обработку персональных данных</h1>
+          <div className="hidden sm:flex items-center gap-2 rounded-2xl border border-blue-100 bg-blue-50 px-3 py-2">
+            <ShieldCheck className="text-[#0052FF]" size={16} />
+            <span className="text-xs font-medium text-blue-900">Правовой контур ФЗ-152</span>
+          </div>
+        </div>
         <p className="text-sm text-gray-700 leading-relaxed">
           Платформа ПОТЕНКОР использует данные опросов и профильные данные сотрудника только для расчета индекса
           ESSI, выявления рисков, формирования рекомендаций и подготовки управленческой аналитики. Данные не

@@ -86,6 +86,16 @@ export default function EmployeeHome() {
         Эта зона создана для сотрудника: спокойно пройти опрос, понять личную динамику и получить поддержку. Данные
         используются для улучшения условий работы, а не для наказания.
       </div>
+      <div className="rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-700">
+        <p className="font-medium text-gray-900">Прозрачность данных</p>
+        <p className="mt-1">
+          Вы всегда можете перечитать юридические условия и понять, как применяются результаты диагностики в рабочем
+          контуре.
+        </p>
+        <Link to="/consent" className="inline-block mt-2 text-[#0052FF] font-medium hover:underline">
+          Открыть условия обработки данных
+        </Link>
+      </div>
       <div>
         <h1 className="text-2xl font-semibold">Здравствуйте, {data.name}</h1>
         <p className="text-gray-600">{data.position}</p>

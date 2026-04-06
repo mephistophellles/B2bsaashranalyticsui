@@ -123,15 +123,15 @@ export default function Departments() {
       <div className="rounded-2xl border border-blue-100 bg-gradient-to-r from-blue-50 to-indigo-50 px-4 py-3 text-sm text-blue-900">
         Управляйте структурой отделов и сравнивайте их вклад в ESSI.
       </div>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Отделы</h1>
-          <p className="text-gray-600">Сводка, создание и редактирование</p>
+      <div className="space-y-2">
+        <div className="flex flex-wrap items-center gap-2.5">
+          <h1 className="text-2xl font-bold text-gray-900">Отделы</h1>
+          <div className="hidden sm:flex items-center gap-2 rounded-2xl border border-blue-100 bg-blue-50 px-3 py-2">
+            <Building2 className="text-[#0052FF]" size={16} />
+            <span className="text-xs font-medium text-blue-900">Структура организации</span>
+          </div>
         </div>
-        <div className="hidden sm:flex items-center gap-2 rounded-2xl border border-blue-100 bg-blue-50 px-3 py-2">
-          <Building2 className="text-[#0052FF]" size={16} />
-          <span className="text-xs font-medium text-blue-900">Структура организации</span>
-        </div>
+        <p className="text-gray-600">Сводка, создание и редактирование</p>
       </div>
 
       {msg && (

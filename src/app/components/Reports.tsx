@@ -105,6 +105,22 @@ type DecisionPayload = {
     loss_efficiency: number | null;
     loss_turnover: number | null;
     loss_total: number | null;
+    behavioral_effects: {
+      code: string;
+      label: string;
+      intensity: number;
+      what_it_means: string;
+    }[];
+    business_impacts: {
+      metric: string;
+      value: number;
+      driver: string;
+    }[];
+    scenario: {
+      current: { loss_efficiency: number; loss_turnover: number; loss_total: number };
+      improved: { loss_efficiency: number; loss_turnover: number; loss_total: number };
+      savings_potential: number;
+    } | null;
     assumptions: string[];
   };
 };
@@ -161,6 +177,7 @@ export default function Reports() {
   const [decision, setDecision] = useState<DecisionPayload | null>(null);
   const [decisionMonths, setDecisionMonths] = useState(6);
   const [decisionErr, setDecisionErr] = useState<string | null>(null);
+  const [explainDictVersion, setExplainDictVersion] = useState<string | null>(null);
   const [eventBusy, setEventBusy] = useState(false);
   const [eventForm, setEventForm] = useState({
     event_date: new Date().toISOString().slice(0, 10),
@@ -193,13 +210,20 @@ export default function Reports() {
 
   async function loadDecision(months = decisionMonths) {
     setDecisionErr(null);
-    const res = await apiFetch(`/reports/decision?months=${months}`);
+    const [res, dictRes] = await Promise.all([
+      apiFetch(`/reports/decision?months=${months}`),
+      apiFetch("/reports/explainability-dictionary"),
+    ]);
     if (!res.ok) {
       setDecisionErr(await parseErrorMessage(res));
       setDecision(null);
       return;
     }
     setDecision((await res.json()) as DecisionPayload);
+    if (dictRes.ok) {
+      const dict = (await dictRes.json()) as { version?: string };
+      setExplainDictVersion(dict.version ?? null);
+    }
   }
 
   useEffect(() => {
@@ -413,15 +437,15 @@ export default function Reports() {
       <div className="rounded-2xl border border-blue-100 bg-gradient-to-r from-blue-50 to-indigo-50 px-4 py-3 text-sm text-blue-900">
         Центр данных: импорт опросов, пересчёт индексов, отчёты и управленческие события.
       </div>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-2 tracking-tight">Отчеты и данные</h1>
-          <p className="text-gray-600">Импорт CSV/XLSX, PDF/Excel, пересчёт индексов, экономика и ML-контур</p>
+      <div className="space-y-2">
+        <div className="flex flex-wrap items-center gap-2.5">
+          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Отчеты и данные</h1>
+          <div className="hidden sm:flex items-center gap-2 rounded-2xl border border-blue-100 bg-blue-50 px-3 py-2">
+            <FileText className="text-[#0052FF]" size={16} />
+            <span className="text-xs font-medium text-blue-900">Управленческая отчетность</span>
+          </div>
         </div>
-        <div className="hidden sm:flex items-center gap-2 rounded-2xl border border-blue-100 bg-blue-50 px-3 py-2">
-          <FileText className="text-[#0052FF]" size={16} />
-          <span className="text-xs font-medium text-blue-900">Управленческая отчетность</span>
-        </div>
+        <p className="text-gray-600">Импорт CSV/XLSX, PDF/Excel, пересчёт индексов, экономика и ML-контур</p>
       </div>
 
       <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm space-y-4">
@@ -440,6 +464,11 @@ export default function Reports() {
             </select>
           </label>
         </div>
+        {explainDictVersion && (
+          <p className="text-xs text-blue-700">
+            Explainability-контур: единый словарь интерпретаций версии {explainDictVersion}.
+          </p>
+        )}
         {decisionErr && <p className="text-sm text-red-600">{decisionErr}</p>}
         {!decisionErr && !decision && <p className="text-sm text-gray-500">Загрузка decision-report…</p>}
         {decision && (
@@ -605,6 +634,57 @@ export default function Reports() {
                 <div>Потери текучести: {decision.economic_effect.loss_turnover ?? "—"}</div>
                 <div className="font-semibold">Итого: {decision.economic_effect.loss_total ?? "—"}</div>
               </div>
+              {decision.economic_effect.behavioral_effects?.length > 0 && (
+                <div className="mt-3 overflow-x-auto">
+                  <table className="w-full min-w-[600px] text-sm border border-gray-200 rounded-xl overflow-hidden">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-3 py-2 text-left font-medium">Поведенческий эффект</th>
+                        <th className="px-3 py-2 text-left font-medium">Интенсивность</th>
+                        <th className="px-3 py-2 text-left font-medium">Что означает</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {decision.economic_effect.behavioral_effects.map((item) => (
+                        <tr key={item.code} className="border-t border-gray-100">
+                          <td className="px-3 py-2">{item.label}</td>
+                          <td className="px-3 py-2">{item.intensity}</td>
+                          <td className="px-3 py-2 whitespace-normal break-words">{item.what_it_means}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              {decision.economic_effect.business_impacts?.length > 0 && (
+                <div className="mt-3 overflow-x-auto">
+                  <table className="w-full min-w-[600px] text-sm border border-gray-200 rounded-xl overflow-hidden">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-3 py-2 text-left font-medium">Метрика бизнеса</th>
+                        <th className="px-3 py-2 text-left font-medium">Влияние</th>
+                        <th className="px-3 py-2 text-left font-medium">Драйвер</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {decision.economic_effect.business_impacts.map((item) => (
+                        <tr key={`${item.metric}-${item.driver}`} className="border-t border-gray-100">
+                          <td className="px-3 py-2">{item.metric}</td>
+                          <td className="px-3 py-2">{item.value}</td>
+                          <td className="px-3 py-2 whitespace-normal break-words">{item.driver}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              {decision.economic_effect.scenario && (
+                <div className="mt-3 rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-900">
+                  Сценарий current vs improved: текущие потери {decision.economic_effect.scenario.current.loss_total},
+                  при улучшении {decision.economic_effect.scenario.improved.loss_total}, потенциал экономии{" "}
+                  {decision.economic_effect.scenario.savings_potential}.
+                </div>
+              )}
               <ul className="mt-2 space-y-1 text-xs text-gray-600">
                 {decision.economic_effect.assumptions.map((a) => <li key={a}>- {a}</li>)}
               </ul>

@@ -11,6 +11,7 @@ from app.models import (
     IndexRecord,
     Notification,
     Recommendation,
+    RecommendationFeedback,
     Survey,
     SurveyCampaign,
     User,
@@ -25,6 +26,33 @@ from app.services.explainability import (
 )
 
 router = APIRouter(prefix="/me", tags=["me"])
+
+
+def _feedback_stats(db: Session, rec_id: int) -> tuple[int, str | None]:
+    rows = (
+        db.query(RecommendationFeedback)
+        .filter(RecommendationFeedback.recommendation_id == rec_id)
+        .order_by(RecommendationFeedback.created_at.desc(), RecommendationFeedback.id.desc())
+        .all()
+    )
+    return len(rows), (rows[0].result if rows else None)
+
+
+def _recommendation_out(db: Session, r: Recommendation, *, audience: str) -> RecommendationOut:
+    feedback_count, last_feedback_result = _feedback_stats(db, r.id)
+    return RecommendationOut(
+        id=r.id,
+        department_id=r.department_id,
+        title=r.title,
+        description=recommendation_text_for_audience(r, audience=audience),
+        priority=r.priority,
+        status=r.status,
+        created_at=r.created_at,
+        model_version=r.model_version,
+        feedback_count=feedback_count,
+        last_feedback_result=last_feedback_result,
+        **build_recommendation_explainability(r, audience=audience),
+    )
 
 
 def _survey_to_row(s: Survey) -> MySurveyRow:
@@ -91,20 +119,7 @@ def my_recommendations(
         .order_by(Recommendation.created_at.desc())
         .all()
     )
-    return [
-        RecommendationOut(
-            id=r.id,
-            department_id=r.department_id,
-            title=r.title,
-            description=recommendation_text_for_audience(r, audience="employee"),
-            priority=r.priority,
-            status=r.status,
-            created_at=r.created_at,
-            model_version=r.model_version,
-            **build_recommendation_explainability(r, audience="employee"),
-        )
-        for r in rows
-    ]
+    return [_recommendation_out(db, r, audience="employee") for r in rows]
 
 
 @router.get("/recommendations/{rec_id}", response_model=RecommendationOut)
@@ -122,17 +137,7 @@ def my_recommendation_detail(
     r = db.query(Recommendation).filter(Recommendation.id == rec_id).first()
     if not r or r.department_id != emp.department_id:
         raise HTTPException(status_code=404, detail="Not found")
-    return RecommendationOut(
-        id=r.id,
-        department_id=r.department_id,
-        title=r.title,
-        description=recommendation_text_for_audience(r, audience="employee"),
-        priority=r.priority,
-        status=r.status,
-        created_at=r.created_at,
-        model_version=r.model_version,
-        **build_recommendation_explainability(r, audience="employee"),
-    )
+    return _recommendation_out(db, r, audience="employee")
 
 
 @router.get("/campaigns", response_model=list[EmployeeCampaignOut])

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Building2 } from "lucide-react";
 import { apiFetch, parseErrorMessage } from "@/api/client";
 
 type DepartmentEmployee = {
@@ -102,7 +102,13 @@ export default function DepartmentDetail() {
         <ArrowLeft size={16} /> Назад к отделам
       </Link>
       <div className="bg-white rounded-2xl border border-gray-200 p-8 shadow-sm">
-        <h1 className="text-2xl font-bold text-gray-900">{name || "…"}</h1>
+        <div className="flex flex-wrap items-center gap-2.5">
+          <h1 className="text-2xl font-bold text-gray-900">{name || "…"}</h1>
+          <div className="hidden sm:flex items-center gap-2 rounded-2xl border border-blue-100 bg-blue-50 px-3 py-2">
+            <Building2 className="text-[#0052FF]" size={16} />
+            <span className="text-xs font-medium text-blue-900">Профиль подразделения ESSI</span>
+          </div>
+        </div>
         {avgEssi != null ? (
           <p className="mt-4 text-3xl font-bold text-[#0052FF]">Средний ESSI {avgEssi.toFixed(1)}</p>
         ) : (

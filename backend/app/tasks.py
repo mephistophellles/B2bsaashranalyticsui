@@ -431,6 +431,44 @@ def _render_decision_pdf(path_pdf: str, decision: dict) -> None:
         )
     )
     story.append(Spacer(1, 6))
+    scenario = eco.get("scenario") or {}
+    if scenario:
+        story.append(
+            Paragraph(
+                "Сценарий current vs improved: "
+                f"текущие потери {as_text((scenario.get('current') or {}).get('loss_total'))}, "
+                f"улучшенный сценарий {as_text((scenario.get('improved') or {}).get('loss_total'))}, "
+                f"потенциал экономии {as_text(scenario.get('savings_potential'))}.",
+                body_style,
+            )
+        )
+        story.append(Spacer(1, 4))
+    effects = eco.get("behavioral_effects", [])
+    if effects:
+        effect_rows = [["Поведенческий эффект", "Интенсивность", "Что означает"]]
+        for item in effects:
+            effect_rows.append(
+                [
+                    as_text(item.get("label")),
+                    as_text(item.get("intensity")),
+                    as_text(item.get("what_it_means")),
+                ]
+            )
+        story.append(key_value_table(effect_rows, col_widths=[140, 80, 280]))
+        story.append(Spacer(1, 4))
+    impacts = eco.get("business_impacts", [])
+    if impacts:
+        impact_rows = [["Метрика бизнеса", "Влияние", "Драйвер"]]
+        for item in impacts:
+            impact_rows.append(
+                [
+                    as_text(item.get("metric")),
+                    as_text(item.get("value")),
+                    as_text(item.get("driver")),
+                ]
+            )
+        story.append(key_value_table(impact_rows, col_widths=[140, 80, 280]))
+        story.append(Spacer(1, 4))
     for item in eco.get("assumptions", []):
         story.append(Paragraph(f"- {item}", body_style))
 
@@ -627,6 +665,22 @@ def run_report_export(report_id: int) -> None:
                         }
                     ]
                 ).to_excel(writer, sheet_name="EconomicEffect", index=False)
+                pd.DataFrame(decision["economic_effect"].get("behavioral_effects", [])).to_excel(
+                    writer, sheet_name="BehavioralEffects", index=False
+                )
+                pd.DataFrame(decision["economic_effect"].get("business_impacts", [])).to_excel(
+                    writer, sheet_name="BusinessImpacts", index=False
+                )
+                scenario_row = decision["economic_effect"].get("scenario") or {}
+                pd.DataFrame(
+                    [
+                        {
+                            "current_loss_total": (scenario_row.get("current") or {}).get("loss_total"),
+                            "improved_loss_total": (scenario_row.get("improved") or {}).get("loss_total"),
+                            "savings_potential": scenario_row.get("savings_potential"),
+                        }
+                    ]
+                ).to_excel(writer, sheet_name="Scenario", index=False)
             rep.status = JobStatus.success
             rep.file_path = path_xlsx
             rep.detail = "Decision Excel generated"

@@ -6,6 +6,12 @@ from sqlalchemy.orm import Session
 from app.models import Employee, IndexRecord, OrganizationSettings, Recommendation
 from app.schemas import DecisionReportPayload
 from app.services.dashboard import build_dashboard
+from app.services.economy_bridge import (
+    behavioral_effects_from_essi,
+    build_economy_scenario,
+    business_impacts_from_effects,
+    calculate_losses,
+)
 from app.services.explainability import (
     build_recommendation_explainability,
     infer_predicted_delta_from_text,
@@ -36,14 +42,13 @@ def _safe_economy(
             "loss_turnover": None,
             "loss_total": None,
         }
-    safe_essi = 99.9 if essi_score >= 100 else essi_score
-    loss_eff = (100.0 - safe_essi) * fot * k
-    loss_turn = departed_count * c_replace
-    return {
-        "loss_efficiency": round(loss_eff, 2),
-        "loss_turnover": round(loss_turn, 2),
-        "loss_total": round(loss_eff + loss_turn, 2),
-    }
+    return calculate_losses(
+        essi_score=essi_score,
+        fot=fot,
+        k=k,
+        c_replace=c_replace,
+        departed_count=departed_count,
+    )
 
 
 def _top_risk_employees(db: Session, limit: int = 5) -> list[dict[str, Any]]:
@@ -175,6 +180,23 @@ def build_decision_report(db: Session, *, months: int = 6) -> dict[str, Any]:
     series = dashboard.get("essi_series", [])
     latest = float(series[-1]["value"]) if series else float(essi_score)
     previous = float(series[-2]["value"]) if len(series) >= 2 else latest
+    behavioral_effects = behavioral_effects_from_essi(essi_score)
+    business_impacts = business_impacts_from_effects(behavioral_effects)
+    scenario = None
+    if (
+        org.default_fot is not None
+        and org.default_k is not None
+        and org.default_c_replace is not None
+        and org.default_departed_count is not None
+    ):
+        scenario = build_economy_scenario(
+            essi_score=essi_score,
+            improved_essi=min(100.0, essi_score + 7.5),
+            fot=org.default_fot,
+            k=org.default_k,
+            c_replace=org.default_c_replace,
+            departed_count=org.default_departed_count,
+        )
     payload = {
         "generated_at": datetime.utcnow(),
         "months": max(3, months),
@@ -223,6 +245,9 @@ def build_decision_report(db: Session, *, months: int = 6) -> dict[str, Any]:
             "loss_efficiency": economy["loss_efficiency"],
             "loss_turnover": economy["loss_turnover"],
             "loss_total": economy["loss_total"],
+            "behavioral_effects": behavioral_effects,
+            "business_impacts": business_impacts,
+            "scenario": scenario,
             "assumptions": assumptions,
         },
     }

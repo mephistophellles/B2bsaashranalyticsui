@@ -23,6 +23,7 @@ from app.schemas import (
 )
 from app.services.dashboard import build_dashboard
 from app.services.decision_report import build_decision_report
+from app.services.explainability import explainability_dictionary
 
 router = APIRouter(prefix="/reports", tags=["reports"])
 
@@ -49,6 +50,13 @@ def decision_report(
         raise HTTPException(status_code=403, detail="Forbidden")
     payload = build_decision_report(db, months=months)
     return DecisionReportPayload.model_validate(payload)
+
+
+@router.get("/explainability-dictionary")
+def get_explainability_dictionary(
+    user: User = Depends(require_roles(UserRole.manager, UserRole.admin)),
+):
+    return explainability_dictionary()
 
 
 @router.get("/events", response_model=list[ManagementEventOut])

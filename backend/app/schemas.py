@@ -192,6 +192,9 @@ class DecisionEconomicEffectOut(BaseModel):
     loss_efficiency: float | None = None
     loss_turnover: float | None = None
     loss_total: float | None = None
+    behavioral_effects: list[dict] = []
+    business_impacts: list[dict] = []
+    scenario: dict | None = None
     assumptions: list[str] = []
 
 
@@ -285,15 +288,38 @@ class RecommendationOut(BaseModel):
     source: str | None = None
     rationale: str | None = None
     expected_effect: str | None = None
+    problem: str | None = None
+    cause: str | None = None
+    action: str | None = None
     rule_drivers: list[ExplainReason] = []
     ml_drivers: list[ExplainReason] = []
     structured_reasons: list[ExplainReason] = []
+    feedback_count: int = 0
+    last_feedback_result: str | None = None
 
     model_config = {"from_attributes": True}
 
 
 class RecommendationPatch(BaseModel):
     status: str | None = None
+
+
+class RecommendationFeedbackIn(BaseModel):
+    status: str | None = None
+    result: str | None = None
+    comment: str | None = Field(default=None, max_length=2000)
+
+
+class RecommendationFeedbackOut(BaseModel):
+    id: int
+    recommendation_id: int
+    user_id: int | None = None
+    status: str
+    result: str | None = None
+    comment: str | None = None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
 
 
 class EconomyRequest(BaseModel):
@@ -308,6 +334,23 @@ class EconomyResponse(BaseModel):
     loss_efficiency: float
     loss_turnover: float
     loss_total: float
+
+
+class EconomyScenarioRequest(BaseModel):
+    fot: float = Field(ge=0)
+    k: float = Field(ge=0)
+    c_replace: float = Field(ge=0)
+    essi_score: float = Field(ge=0, le=100)
+    departed_count: int = Field(default=0, ge=0)
+    improved_essi: float = Field(ge=0, le=100)
+
+
+class EconomyScenarioResponse(BaseModel):
+    current: EconomyResponse
+    improved: EconomyResponse
+    savings_potential: float
+    behavioral_effects: list[dict] = []
+    business_impacts: list[dict] = []
 
 
 class EconomyDefaultsOut(BaseModel):

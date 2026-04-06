@@ -1,6 +1,6 @@
 import { Fragment, useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
-import { ArrowLeft, ChevronDown, ChevronRight, Trash2 } from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronRight, Trash2, Users } from "lucide-react";
 import { apiFetch, parseErrorMessage } from "@/api/client";
 import {
   Dialog,
@@ -234,9 +234,15 @@ export default function EmployeeDetail() {
         </div>
       )}
 
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">{data.name}</h1>
-        <p className="text-gray-600 mt-1">
+      <div className="space-y-1">
+        <div className="flex flex-wrap items-center gap-2.5">
+          <h1 className="text-2xl font-bold text-gray-900">{data.name}</h1>
+          <div className="hidden sm:flex items-center gap-2 rounded-2xl border border-blue-100 bg-blue-50 px-3 py-2">
+            <Users className="text-[#0052FF]" size={16} />
+            <span className="text-xs font-medium text-blue-900">Паспорт сотрудника ESSI</span>
+          </div>
+        </div>
+        <p className="text-gray-600">
           {data.position ?? "—"} · {data.department}
         </p>
       </div>

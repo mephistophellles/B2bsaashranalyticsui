@@ -3,6 +3,28 @@ from typing import Any
 
 from app.models import Recommendation
 
+EXPLAINABILITY_DICTIONARY_VERSION = "v1.0.0"
+
+INTERPRETATION_DICTIONARY: dict[str, Any] = {
+    "version": EXPLAINABILITY_DICTIONARY_VERSION,
+    "framework": "what-why-action",
+    "sources": {
+        "rule": "Правила на основе текста, блоков ESSI и статических сигналов",
+        "ml": "ML-сигналы паттернов динамики и факторов риска",
+    },
+    "block_thresholds": {
+        "critical_lt": 40,
+        "risk_lt": 60,
+        "stable_lt": 80,
+        "strong_ge": 80,
+    },
+    "behavioral_effects": [
+        {"code": "strain", "label": "Напряжение и риск выгорания"},
+        {"code": "engagement", "label": "Вовлеченность и инициативность"},
+        {"code": "focus", "label": "Концентрация и стабильность выполнения"},
+    ],
+}
+
 
 def recommendation_source(model_version: str | None) -> str:
     return "ml" if (model_version and model_version != "rules-v2") else "rules"
@@ -24,6 +46,36 @@ def recommendation_expected_effect(source: str, audience: str = "manager") -> st
     if source == "ml":
         return "Снижение доли сотрудников в зоне риска и стабилизация ESSI в ближайшие периоды."
     return "Стабилизация динамики ESSI и снижение управленческих рисков по отделу."
+
+
+def explainability_dictionary() -> dict[str, Any]:
+    return INTERPRETATION_DICTIONARY
+
+
+def _problem_cause_action(
+    *,
+    text: str,
+    reasons: list[dict[str, Any]],
+    source: str,
+    audience: str,
+) -> dict[str, str]:
+    top_reason = reasons[0]["label"] if reasons else "снижение устойчивости в блоках ESSI"
+    top_detail = reasons[0]["detail"] if reasons else "факторы риска требуют уточнения на повторном замере"
+    problem = (
+        "Наблюдается риск снижения устойчивости команды."
+        if audience == "manager"
+        else "Есть признаки, что условия работы могут быть менее устойчивыми."
+    )
+    if "криз" in text.lower():
+        problem = "Выраженная зона риска требует приоритетного управленческого внимания."
+    cause = f"Ключевой фактор: {top_reason}. {top_detail}"
+    if source == "ml":
+        action = (
+            "Запустить приоритетный план действий на 2-4 недели, закрепить ответственного и проверить динамику."
+        )
+    else:
+        action = "Согласовать точечные изменения в процессах/нагрузке и выполнить контрольный замер."
+    return {"problem": problem, "cause": cause, "action": action}
 
 
 def _reason(
@@ -161,10 +213,19 @@ def build_recommendation_explainability(
         predicted_delta=predicted_delta,
     )
     structured = prioritized_reasons(rule_drivers=rule_drivers, ml_drivers=ml_drivers)
+    pca = _problem_cause_action(
+        text=description,
+        reasons=structured,
+        source=source,
+        audience=audience,
+    )
     return {
         "source": source,
         "rationale": rationale,
         "expected_effect": recommendation_expected_effect(source, audience=audience),
+        "problem": pca["problem"],
+        "cause": pca["cause"],
+        "action": pca["action"],
         "rule_drivers": rule_drivers,
         "ml_drivers": ml_drivers,
         "structured_reasons": structured,

@@ -12,6 +12,10 @@ type Rec = {
   status: string;
   created_at: string;
   model_version: string | null;
+  expected_effect?: string | null;
+  problem?: string | null;
+  cause?: string | null;
+  action?: string | null;
 };
 
 export default function MyRecommendations() {
@@ -64,8 +68,17 @@ export default function MyRecommendations() {
           <Lightbulb className="text-amber-600" size={28} />
         </div>
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Мои рекомендации</h1>
+          <div className="flex flex-wrap items-center gap-2.5">
+            <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Мои рекомендации</h1>
+            <div className="hidden sm:flex items-center gap-2 rounded-2xl border border-blue-100 bg-blue-50 px-3 py-2">
+              <Lightbulb className="text-[#0052FF]" size={16} />
+              <span className="text-xs font-medium text-blue-900">Личный план улучшений</span>
+            </div>
+          </div>
           <p className="text-gray-600 text-sm">Советы для вашего отдела. Нажмите карточку, чтобы прочитать целиком.</p>
+          <p className="text-xs text-gray-500 mt-1">
+            Это рекомендации для улучшения условий работы в команде, а не персональная оценка сотрудника.
+          </p>
         </div>
       </div>
       {err && (
@@ -92,6 +105,13 @@ export default function MyRecommendations() {
           >
             <div className="font-semibold text-gray-900">{r.title}</div>
             <div className="text-sm text-gray-600 mt-2 leading-relaxed line-clamp-3">{r.description}</div>
+            {(r.problem || r.cause || r.action) && (
+              <div className="mt-2 grid gap-1 text-xs rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-blue-900">
+                {r.problem && <div><span className="font-semibold">Проблема:</span> {r.problem}</div>}
+                {r.cause && <div><span className="font-semibold">Причина:</span> {r.cause}</div>}
+                {r.action && <div><span className="font-semibold">Действие:</span> {r.action}</div>}
+              </div>
+            )}
             <div className="flex flex-wrap gap-2 mt-3">
               <span
                 className={`text-xs px-2.5 py-1 rounded-full font-medium ${
@@ -140,6 +160,18 @@ export default function MyRecommendations() {
               </button>
             </div>
             <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{selected.description}</p>
+            {(selected.problem || selected.cause || selected.action) && (
+              <div className="mt-3 rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-900 space-y-1">
+                {selected.problem && <p><span className="font-semibold">Проблема:</span> {selected.problem}</p>}
+                {selected.cause && <p><span className="font-semibold">Причина:</span> {selected.cause}</p>}
+                {selected.action && <p><span className="font-semibold">Действие:</span> {selected.action}</p>}
+              </div>
+            )}
+            {selected.expected_effect && (
+              <p className="text-xs text-green-700 mt-2 bg-green-50 border border-green-100 rounded-lg px-3 py-2">
+                Ожидаемый эффект: {selected.expected_effect}
+              </p>
+            )}
             <div className="flex flex-wrap gap-2 mt-4 text-xs text-gray-500">
               <span>Статус: {selected.status}</span>
               <span>Приоритет: {selected.priority}</span>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { useAuth } from "@/auth/AuthContext";
+import loginLogo from "@/assets/brand/potencore-login-icon.png";
 
 export default function Login() {
   const { login, user, loading } = useAuth();
@@ -41,11 +42,9 @@ export default function Login() {
       <div className="mx-auto max-w-6xl rounded-2xl overflow-hidden border border-gray-200 bg-white shadow-sm min-h-[78vh] grid grid-cols-1 lg:grid-cols-[1.05fr_1.45fr]">
         <aside className="bg-gradient-to-br from-[#0F5CBD] to-[#0A4A99] text-white p-10 lg:p-12 flex flex-col justify-between">
           <div className="space-y-8">
-            <div className="inline-flex items-center gap-2 bg-white/10 border border-white/20 rounded-xl px-3 py-2">
-              <div className="w-6 h-6 rounded-md bg-white text-[#0F5CBD] text-xs font-bold flex items-center justify-center">
-                P
-              </div>
-              <span className="font-semibold">Потенкор</span>
+            <div className="inline-flex items-center gap-2.5 bg-white/10 border border-white/20 rounded-xl px-3 py-2">
+              <img src={loginLogo} alt="PotenCore" className="h-10 w-10 rounded-xl object-contain" />
+              <span className="text-white text-xl font-semibold tracking-tight">ПОТЕНКОР</span>
             </div>
             <div>
               <h1 className="text-4xl font-bold leading-tight">Вход в систему</h1>

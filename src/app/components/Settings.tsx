@@ -523,7 +523,13 @@ export default function Settings() {
           <SettingsIcon className="text-[#0052FF]" size={26} />
         </div>
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Настройки</h1>
+          <div className="flex flex-wrap items-center gap-2.5">
+            <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Настройки</h1>
+            <div className="hidden sm:flex items-center gap-2 rounded-2xl border border-blue-100 bg-blue-50 px-3 py-2">
+              <SettingsIcon className="text-[#0052FF]" size={16} />
+              <span className="text-xs font-medium text-blue-900">Профиль и доступы системы</span>
+            </div>
+          </div>
           <p className="text-gray-600 text-sm">Профиль и администрирование</p>
         </div>
       </div>

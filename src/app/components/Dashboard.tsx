@@ -159,7 +159,7 @@ export default function Dashboard() {
         Единая панель устойчивости: следите за индексом ESSI, рисками и вкладом отделов.
       </div>
       <div className="flex flex-wrap gap-3 items-center justify-between">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
           <h1 className="text-2xl font-bold text-gray-900">Главная</h1>
           <div className="hidden sm:flex items-center gap-2 rounded-2xl border border-blue-100 bg-blue-50 px-3 py-2">
             <Activity className="text-[#0052FF]" size={16} />

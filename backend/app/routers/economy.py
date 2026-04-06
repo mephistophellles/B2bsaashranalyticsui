@@ -8,8 +8,11 @@ from app.schemas import (
     EconomyDefaultsOut,
     EconomyDraftsPatch,
     EconomyRequest,
+    EconomyScenarioRequest,
+    EconomyScenarioResponse,
     EconomyResponse,
 )
+from app.services.economy_bridge import build_economy_scenario, calculate_losses
 from app.services.essi import organization_avg_essi
 
 router = APIRouter(prefix="/economy", tags=["economy"])
@@ -23,16 +26,37 @@ def economy_calc(
 ):
     if user.role == UserRole.employee:
         raise HTTPException(status_code=403, detail="Forbidden")
-    essi = body.essi_score
-    if essi >= 100:
-        essi = 99.9
-    loss_eff = (100.0 - essi) * body.fot * body.k
-    loss_turn = body.departed_count * body.c_replace
-    return EconomyResponse(
-        loss_efficiency=round(loss_eff, 2),
-        loss_turnover=round(loss_turn, 2),
-        loss_total=round(loss_eff + loss_turn, 2),
+    losses = calculate_losses(
+        essi_score=body.essi_score,
+        fot=body.fot,
+        k=body.k,
+        c_replace=body.c_replace,
+        departed_count=body.departed_count,
     )
+    return EconomyResponse(
+        loss_efficiency=losses["loss_efficiency"],
+        loss_turnover=losses["loss_turnover"],
+        loss_total=losses["loss_total"],
+    )
+
+
+@router.post("/scenario", response_model=EconomyScenarioResponse)
+def economy_scenario(
+    body: EconomyScenarioRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    if user.role == UserRole.employee:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    payload = build_economy_scenario(
+        essi_score=body.essi_score,
+        improved_essi=body.improved_essi,
+        fot=body.fot,
+        k=body.k,
+        c_replace=body.c_replace,
+        departed_count=body.departed_count,
+    )
+    return EconomyScenarioResponse.model_validate(payload)
 
 
 def _org_settings(db: Session) -> OrganizationSettings:
