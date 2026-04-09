@@ -190,7 +190,9 @@ export default function EmployeeDetail() {
         <Link to="/employees" className="text-sm text-[#0052FF] inline-flex items-center gap-1">
           <ArrowLeft size={16} /> К списку
         </Link>
-        <p className="text-red-600">{err ?? "Загрузка…"}</p>
+        <p className={err ? "text-red-600" : "text-gray-600"}>
+          {err ?? "Идёт обработка данных. Это займёт несколько секунд."}
+        </p>
       </div>
     );
   }
@@ -265,9 +267,20 @@ export default function EmployeeDetail() {
           <div className="text-lg font-semibold">{data.productivity}%</div>
         </div>
       </div>
+      <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-700 leading-relaxed space-y-2">
+        <p>Результат отражает текущую рабочую ситуацию и не является оценкой личности.</p>
+        <p>
+          Индекс показывает, насколько текущие условия поддерживают стабильную и эффективную работу. Рекомендации
+          направлены на улучшение состояния.
+        </p>
+      </div>
 
       <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
         <h2 className="text-lg font-semibold mb-3">Отклонения по 5 блокам</h2>
+        <p className="text-sm text-gray-600 mb-4 leading-relaxed">
+          На результат влияют рабочие условия, нагрузка и взаимодействие. Изменение этих факторов может улучшить или
+          ухудшить ситуацию.
+        </p>
         {blocks.length === 0 ? (
           <p className="text-sm text-gray-500">Нет данных по блокам.</p>
         ) : (
@@ -291,6 +304,10 @@ export default function EmployeeDetail() {
           <div className="grid md:grid-cols-2 gap-3 mt-4">
             <div className="rounded-xl border border-green-100 bg-green-50 px-3 py-3">
               <div className="text-xs uppercase tracking-wide text-green-700 mb-2">Сильные стороны сотрудника</div>
+              <p className="text-xs text-green-900 mb-2 leading-relaxed">
+                Сильные стороны создают устойчивую основу для работы и поддерживают стабильность. Эти факторы можно
+                использовать как точки опоры для дальнейшего развития.
+              </p>
               {strongestBlocks.map((b) => (
                 <div key={`strong-${b.block_index}`} className="text-sm text-green-900">
                   <span className="font-medium">{b.title}</span>: {b.value.toFixed(1)}
@@ -299,6 +316,10 @@ export default function EmployeeDetail() {
             </div>
             <div className="rounded-xl border border-amber-100 bg-amber-50 px-3 py-3">
               <div className="text-xs uppercase tracking-wide text-amber-700 mb-2">Зоны внимания</div>
+              <p className="text-xs text-amber-900 mb-2 leading-relaxed">
+                Некоторые факторы могут оказывать влияние на состояние и требуют внимания. Своевременные изменения могут
+                улучшить ситуацию.
+              </p>
               {weakestBlocks.map((b) => (
                 <div key={`weak-${b.block_index}`} className="text-sm text-amber-900">
                   <span className="font-medium">{b.title}</span>: {b.value.toFixed(1)}

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router";
-import { Lightbulb, CheckCircle2, X } from "lucide-react";
+import { Lightbulb, CheckCircle2, X, Target, ListChecks, CalendarClock, TrendingUp } from "lucide-react";
 import { apiFetch, parseErrorMessage } from "@/api/client";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 
@@ -23,6 +23,89 @@ type Rec = {
   last_feedback_result?: string | null;
 };
 
+function problemOneLine(r: Rec): string {
+  const p = r.problem?.trim();
+  if (p) return p.split(/\n/)[0].trim().slice(0, 280);
+  const c = r.cause?.trim();
+  if (c) return c.split(/\n/)[0].trim().slice(0, 280);
+  const first = r.description.split(/\n/)[0]?.trim();
+  if (first && first.length <= 280) return first;
+  return r.title;
+}
+
+function splitActionSteps(text: string): string[] {
+  const t = text.replace(/\r/g, "\n").replace(/Рекомендации:\s*/gi, "").trim();
+  if (!t) return [];
+  const byBullet = t.split(/[•\u2022]/).map((s) => s.trim()).filter(Boolean);
+  if (byBullet.length > 1) return byBullet;
+  const byNl = t.split(/\n/).map((s) => s.trim()).filter(Boolean);
+  if (byNl.length > 1) return byNl;
+  const bySemi = t.split(/;/).map((s) => s.trim()).filter(Boolean);
+  if (bySemi.length > 1) return bySemi;
+  if (t.length > 100) {
+    const sentences = t.split(/(?<=[.!?])\s+/).filter((s) => s.trim().length > 20);
+    if (sentences.length >= 2) return sentences.map((s) => s.trim());
+  }
+  return [t];
+}
+
+const FALLBACK_ACTIONS = [
+  "Назначить ответственного и дату контрольной проверки.",
+  "Согласовать меры с руководителем подразделения.",
+  "Зафиксировать договорённости в задаче или протоколе.",
+];
+
+function sentencesFromDescription(desc: string): string[] {
+  return desc
+    .replace(/\r/g, "\n")
+    .split(/(?<=[.!?])\s+/)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 20 && s.length < 420)
+    .slice(0, 4);
+}
+
+function buildActionSteps(r: Rec): string[] {
+  let steps = r.action ? splitActionSteps(r.action) : [];
+  if (steps.length < 3) {
+    for (const s of sentencesFromDescription(r.description)) {
+      if (!steps.some((x) => x.slice(0, 40) === s.slice(0, 40))) steps.push(s);
+      if (steps.length >= 4) break;
+    }
+  }
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const s of steps) {
+    const key = s.slice(0, 100);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(s);
+    if (out.length >= 4) break;
+  }
+  let i = 0;
+  while (out.length < 3 && i < FALLBACK_ACTIONS.length) {
+    const f = FALLBACK_ACTIONS[i];
+    i += 1;
+    if (!seen.has(f)) {
+      seen.add(f);
+      out.push(f);
+    }
+  }
+  return out.slice(0, 4);
+}
+
+function deadlineByPriority(priority: string): string {
+  switch (priority) {
+    case "high":
+      return "Первые шаги — в течение 5–7 рабочих дней; контрольный разбор — через 2 недели.";
+    case "medium":
+      return "Старт — в течение 2 недель; промежуточный итог — через 4 недели.";
+    case "low":
+      return "Планирование — в пределах месяца; оценка эффекта — по следующему циклу диагностики.";
+    default:
+      return "Срок согласуйте с календарём отдела; ориентир — 2–4 недели на первый этап.";
+  }
+}
+
 export default function Recommendations() {
   const { id: routeId } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -32,10 +115,6 @@ export default function Recommendations() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [priorityFilter, setPriorityFilter] = useState("all");
   const [search, setSearch] = useState("");
-  const [feedbackResult, setFeedbackResult] = useState("есть эффект");
-  const [feedbackComment, setFeedbackComment] = useState("");
-  const [feedbackBusy, setFeedbackBusy] = useState(false);
-  const [feedbackMsg, setFeedbackMsg] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setErr(null);
@@ -84,75 +163,36 @@ export default function Recommendations() {
 
   function closeDetail() {
     navigate("/recommendations");
-    setFeedbackMsg(null);
-    setFeedbackComment("");
-  }
-
-  async function submitFeedback(recId: number) {
-    setFeedbackBusy(true);
-    setFeedbackMsg(null);
-    try {
-      const res = await apiFetch(`/recommendations/${recId}/feedback`, {
-        method: "POST",
-        body: JSON.stringify({
-          status: selected?.status ?? "Новая",
-          result: feedbackResult,
-          comment: feedbackComment.trim() || null,
-        }),
-      });
-      if (!res.ok) {
-        setFeedbackMsg(await parseErrorMessage(res));
-        return;
-      }
-      setFeedbackMsg("Обратная связь сохранена.");
-      setFeedbackComment("");
-      await load();
-    } finally {
-      setFeedbackBusy(false);
-    }
   }
 
   return (
     <div className="p-6 space-y-6">
-      <div className="rounded-2xl border border-amber-100 bg-gradient-to-r from-amber-50 to-orange-50 px-4 py-3 text-sm text-amber-900">
-        Подсказки к действиям: для каждой рекомендации показываем основание, ожидаемый эффект и источник (правила/ML).
-      </div>
       <div className="flex items-center gap-3">
         <div className="w-12 h-12 rounded-2xl bg-amber-50 flex items-center justify-center shadow-sm">
-          <Lightbulb className="text-amber-600" size={28} />
+          <Lightbulb className="text-amber-600" size={26} />
         </div>
         <div>
-          <div className="flex flex-wrap items-center gap-2.5">
-            <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Рекомендации</h1>
-            <div className="hidden sm:flex items-center gap-2 rounded-2xl border border-blue-100 bg-blue-50 px-3 py-2">
-              <Lightbulb className="text-[#0052FF]" size={16} />
-              <span className="text-xs font-medium text-blue-900">Приоритеты и исполнение мер</span>
-            </div>
-          </div>
-          <p className="text-gray-600 text-sm">Правила и ML; отметьте выполнение. Карточку можно открыть целиком.</p>
-          <p className="text-xs text-gray-500 mt-1">
-            Сейчас используется гибридный подход: правила на актуальных данных + опциональное ML-обучение
-            (LightGBM) после накопления достаточного объема наблюдений.
-          </p>
+          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Рекомендации</h1>
+          <p className="text-sm text-gray-600">Управленческие меры на основе диагностики ESSI</p>
         </div>
       </div>
       <div className="bg-white rounded-xl border border-gray-200 p-6 flex flex-wrap gap-5 items-end">
-        <label className="text-sm text-gray-600">
+        <label className="text-sm text-gray-600 flex flex-col gap-1">
           Поиск
           <input
-            className="mt-2 h-11 border rounded-xl px-3 w-72"
+            className="h-11 border rounded-xl px-3 w-72"
             placeholder="Название или текст"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </label>
-        <label className="text-sm text-gray-600">
+        <label className="text-sm text-gray-600 flex flex-col gap-1">
           Статус
           <Select
             value={statusFilter}
             onValueChange={setStatusFilter}
           >
-            <SelectTrigger className="mt-2 h-11 min-w-48 rounded-xl border-gray-300 bg-white">
+            <SelectTrigger className="h-11 min-w-48 rounded-xl border-gray-300 bg-white">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -162,13 +202,13 @@ export default function Recommendations() {
             </SelectContent>
           </Select>
         </label>
-        <label className="text-sm text-gray-600">
+        <label className="text-sm text-gray-600 flex flex-col gap-1">
           Приоритет
           <Select
             value={priorityFilter}
             onValueChange={setPriorityFilter}
           >
-            <SelectTrigger className="mt-2 h-11 min-w-48 rounded-xl border-gray-300 bg-white">
+            <SelectTrigger className="h-11 min-w-48 rounded-xl border-gray-300 bg-white">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -202,43 +242,63 @@ export default function Recommendations() {
             }}
             className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm hover:border-[#0052FF]/30 transition-colors text-left cursor-pointer"
           >
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div className="min-w-0 flex-1">
-                <div className="font-semibold text-gray-900">{r.title}</div>
-                <div className="text-sm text-gray-600 mt-2 leading-relaxed line-clamp-3">{r.description}</div>
-                {r.rationale && (
-                  <div className="mt-2 text-xs text-gray-600 rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5">
-                    Основание: {r.rationale}
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div className="min-w-0 flex-1 space-y-3">
+                <div className="font-semibold text-gray-900 text-base leading-snug">{r.title}</div>
+
+                <div className="rounded-xl border-l-4 border-amber-400 bg-amber-50/80 pl-3 pr-2 py-2">
+                  <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-amber-900/85 mb-1">
+                    <Target size={12} className="shrink-0" aria-hidden />
+                    Проблема
                   </div>
-                )}
-                {r.expected_effect && (
-                  <div className="mt-1 text-xs text-green-700 rounded-lg border border-green-100 bg-green-50 px-2.5 py-1.5">
-                    Ожидаемый эффект: {r.expected_effect}
+                  <p className="text-sm text-gray-900 leading-snug line-clamp-2">{problemOneLine(r)}</p>
+                </div>
+
+                <div>
+                  <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-gray-500 mb-1.5">
+                    <ListChecks size={12} className="shrink-0 text-gray-400" aria-hidden />
+                    Действия
                   </div>
-                )}
-                {(r.problem || r.cause || r.action) && (
-                  <div className="mt-2 grid gap-1 text-xs rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-blue-900">
-                    {r.problem && <div><span className="font-semibold">Проблема:</span> {r.problem}</div>}
-                    {r.cause && <div><span className="font-semibold">Причина:</span> {r.cause}</div>}
-                    {r.action && <div><span className="font-semibold">Действие:</span> {r.action}</div>}
+                  <ol className="space-y-1.5 list-none m-0 p-0">
+                    {buildActionSteps(r).map((step, idx) => (
+                      <li key={idx} className="flex gap-2 text-sm text-gray-800 leading-snug">
+                        <span
+                          className="flex h-5 min-w-[1.25rem] shrink-0 items-center justify-center rounded-full bg-[#0052FF]/12 text-[10px] font-bold text-[#0052FF]"
+                          aria-hidden
+                        >
+                          {idx + 1}
+                        </span>
+                        <span className="line-clamp-2 min-w-0">{step}</span>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 px-3 py-2">
+                  <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-900/90 mb-0.5">
+                    <TrendingUp size={12} className="shrink-0" aria-hidden />
+                    Эффект
                   </div>
-                )}
+                  <p className="text-xs text-emerald-950 leading-relaxed line-clamp-2">
+                    {r.expected_effect?.trim() ||
+                      "Снижение скрытых потерь и рост устойчивости при закреплении мер."}
+                  </p>
+                </div>
               </div>
-              <div className="flex flex-col items-end gap-2">
+
+              <div className="flex flex-col items-end gap-2 shrink-0">
                 <span
                   className={`text-xs px-2.5 py-1 rounded-full font-medium ${
                     r.priority === "high"
                       ? "bg-red-100 text-red-700"
-                      : "bg-blue-100 text-blue-700"
+                      : r.priority === "low"
+                        ? "bg-gray-100 text-gray-700"
+                        : "bg-blue-100 text-blue-700"
                   }`}
                 >
                   {r.priority}
                 </span>
                 <span className="text-xs text-gray-500">{r.status}</span>
-                <span className="text-xs text-gray-400">
-                  feedback: {r.feedback_count ?? 0}
-                  {r.last_feedback_result ? ` · последнее: ${r.last_feedback_result}` : ""}
-                </span>
                 {r.status !== "Выполнено" && (
                   <button
                     type="button"
@@ -252,12 +312,6 @@ export default function Recommendations() {
                 )}
               </div>
             </div>
-            {r.model_version && (
-              <p className="text-xs text-gray-400 mt-2">
-                model: {r.model_version}
-                {r.source ? ` · источник: ${r.source}` : ""}
-              </p>
-            )}
           </div>
         ))}
       </div>
@@ -272,11 +326,11 @@ export default function Recommendations() {
             role="dialog"
             aria-modal="true"
             aria-labelledby="rec-detail-title"
-            className="bg-white rounded-2xl shadow-xl max-w-lg w-full max-h-[85vh] overflow-y-auto p-6 border border-gray-200"
+            className="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6 sm:p-8 border border-gray-200"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex justify-between gap-4 items-start mb-4">
-              <h2 id="rec-detail-title" className="text-lg font-semibold text-gray-900 pr-8">
+            <div className="flex justify-between gap-4 items-start mb-6">
+              <h2 id="rec-detail-title" className="text-xl font-bold text-gray-900 pr-8 leading-snug">
                 {selected.title}
               </h2>
               <button
@@ -288,68 +342,82 @@ export default function Recommendations() {
                 <X size={20} />
               </button>
             </div>
-            <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{selected.description}</p>
-            {selected.rationale && (
-              <p className="text-xs text-gray-600 mt-3 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
-                Основание: {selected.rationale}
-              </p>
-            )}
-            {selected.expected_effect && (
-              <p className="text-xs text-green-700 mt-2 bg-green-50 border border-green-100 rounded-lg px-3 py-2">
-                Ожидаемый эффект: {selected.expected_effect}
-              </p>
-            )}
-            {(selected.problem || selected.cause || selected.action) && (
-              <div className="mt-3 rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-900 space-y-1">
-                {selected.problem && <p><span className="font-semibold">Проблема:</span> {selected.problem}</p>}
-                {selected.cause && <p><span className="font-semibold">Причина:</span> {selected.cause}</p>}
-                {selected.action && <p><span className="font-semibold">Действие:</span> {selected.action}</p>}
-              </div>
-            )}
-            <div className="flex flex-wrap gap-2 mt-4 text-xs text-gray-500">
-              <span>Статус: {selected.status}</span>
-              <span>Приоритет: {selected.priority}</span>
-              {selected.source && <span>Источник: {selected.source}</span>}
-              {selected.model_version && <span>Версия: {selected.model_version}</span>}
+
+            <div className="space-y-5">
+              <section className="rounded-xl border-l-4 border-amber-400 bg-amber-50/80 pl-4 pr-3 py-3">
+                <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-amber-900/90 mb-1.5">
+                  <Target size={14} className="shrink-0" />
+                  Проблема
+                </div>
+                <p className="text-sm font-medium text-gray-900 leading-snug">{problemOneLine(selected)}</p>
+              </section>
+
+              <section>
+                <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-600 mb-2">
+                  <ListChecks size={14} className="shrink-0" />
+                  Действия (3–4 шага)
+                </div>
+                <ol className="space-y-3 list-none m-0 p-0">
+                  {buildActionSteps(selected).map((step, idx) => (
+                    <li key={idx} className="flex gap-3 text-sm text-gray-800 leading-relaxed">
+                      <span
+                        className="flex h-7 min-w-[1.75rem] shrink-0 items-center justify-center rounded-full bg-[#0052FF]/12 text-xs font-bold text-[#0052FF]"
+                        aria-hidden
+                      >
+                        {idx + 1}
+                      </span>
+                      <span className="pt-0.5">{step}</span>
+                    </li>
+                  ))}
+                </ol>
+              </section>
+
+              <section className="rounded-xl border border-slate-200 bg-slate-50/90 px-4 py-3">
+                <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-700 mb-1.5">
+                  <CalendarClock size={14} className="shrink-0" />
+                  Сроки
+                </div>
+                <p className="text-sm text-slate-800 leading-relaxed">{deadlineByPriority(selected.priority)}</p>
+                <p className="text-xs text-slate-500 mt-2">
+                  Ориентир по приоритету ({selected.priority}). Уточните даты под ваш календарь.
+                </p>
+              </section>
+
+              <section className="rounded-xl border border-emerald-200 bg-emerald-50/80 px-4 py-3">
+                <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-emerald-900 mb-1.5">
+                  <TrendingUp size={14} className="shrink-0" />
+                  Ожидаемый эффект
+                </div>
+                <p className="text-sm text-emerald-950 leading-relaxed">
+                  {selected.expected_effect?.trim() ||
+                    "Снижение скрытых потерь и рост устойчивости команды при закреплении мер; измеряйте по следующему циклу ESSI."}
+                </p>
+              </section>
+
+              <details className="group rounded-xl border border-gray-200 bg-gray-50/60 px-4 py-3 text-sm">
+                <summary className="cursor-pointer font-medium text-gray-800 list-none flex items-center gap-2">
+                  <span className="text-gray-500 group-open:rotate-90 transition-transform">▸</span>
+                  Контекст и основание
+                </summary>
+                <div className="mt-3 space-y-3 text-gray-700 leading-relaxed">
+                  <p className="whitespace-pre-wrap">{selected.description}</p>
+                  {selected.rationale && (
+                    <p className="text-xs text-gray-600 border-t border-gray-200 pt-3">
+                      <span className="font-semibold text-gray-700">Основание: </span>
+                      {selected.rationale}
+                    </p>
+                  )}
+                  {selected.cause && selected.cause !== selected.problem && (
+                    <p className="text-xs text-gray-600">
+                      <span className="font-semibold text-gray-700">Причина (развёрнуто): </span>
+                      {selected.cause}
+                    </p>
+                  )}
+                </div>
+              </details>
             </div>
-            <div className="mt-4 rounded-xl border border-gray-200 bg-gray-50 p-3 space-y-3">
-              <p className="text-xs text-gray-600">
-                Feedback-loop: отметьте фактический результат и комментарий, чтобы система училась на практике.
-              </p>
-              <div className="grid sm:grid-cols-2 gap-2">
-                <label className="text-xs text-gray-600">
-                  Результат
-                  <select
-                    className="mt-1 w-full h-9 rounded-lg border border-gray-300 bg-white px-2 text-sm"
-                    value={feedbackResult}
-                    onChange={(e) => setFeedbackResult(e.target.value)}
-                  >
-                    <option value="есть эффект">Есть эффект</option>
-                    <option value="частичный эффект">Частичный эффект</option>
-                    <option value="без эффекта">Без эффекта</option>
-                  </select>
-                </label>
-                <label className="text-xs text-gray-600">
-                  Комментарий
-                  <input
-                    className="mt-1 w-full h-9 rounded-lg border border-gray-300 bg-white px-2 text-sm"
-                    value={feedbackComment}
-                    onChange={(e) => setFeedbackComment(e.target.value)}
-                    placeholder="Что сработало/не сработало"
-                  />
-                </label>
-              </div>
-              <button
-                type="button"
-                disabled={feedbackBusy}
-                onClick={() => void submitFeedback(selected.id)}
-                className="px-3 py-2 rounded-lg bg-[#0052FF] text-white text-xs font-medium disabled:opacity-50"
-              >
-                {feedbackBusy ? "Сохранение…" : "Сохранить feedback"}
-              </button>
-              {feedbackMsg && <p className="text-xs text-gray-600">{feedbackMsg}</p>}
-            </div>
-            <div className="mt-6 flex flex-wrap gap-3">
+
+            <div className="mt-8 flex flex-wrap gap-3 pt-2 border-t border-gray-100">
               <button
                 type="button"
                 onClick={closeDetail}

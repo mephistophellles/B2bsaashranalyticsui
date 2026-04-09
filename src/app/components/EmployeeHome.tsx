@@ -67,24 +67,31 @@ export default function EmployeeHome() {
   }, []);
 
   if (!data) {
-    return <div className="p-6 text-gray-500">Загрузка профиля…</div>;
+    return (
+      <div className="p-6 text-gray-500">
+        Идёт обработка данных. Это займёт несколько секунд.
+      </div>
+    );
   }
 
   return (
     <div className="p-6 space-y-8 max-w-2xl">
       <div className="rounded-2xl border border-blue-100 bg-gradient-to-r from-blue-50 to-indigo-50 px-4 py-4 text-sm text-blue-900">
         <p className="leading-relaxed">
-          Опрос помогает понять состояние команды и рабочей среды: где есть устойчивость, а где нужны улучшения.
-          Руководитель видит агрегированную управленческую картину и динамику по команде, а не инструмент личного
-          наказания сотрудника.
+          Здесь вы можете пройти диагностику, увидеть результат и понять, какие факторы влияют на вашу рабочую
+          ситуацию. Результаты не являются оценкой личности.
         </p>
         <a href="#employee-faq" className="inline-block mt-2 font-medium underline">
           Подробнее о том, как работает ESSI
         </a>
       </div>
-      <div className="rounded-2xl border border-green-100 bg-gradient-to-r from-green-50 to-emerald-50 px-4 py-3 text-sm text-green-900">
-        Эта зона создана для сотрудника: спокойно пройти опрос, понять личную динамику и получить поддержку. Данные
-        используются для улучшения условий работы, а не для наказания.
+      <div className="rounded-2xl border border-green-100 bg-gradient-to-r from-green-50 to-emerald-50 px-4 py-3 text-sm text-green-900 space-y-2">
+        <p className="leading-relaxed">
+          Результаты помогают улучшить условия работы, снизить нагрузку и повысить стабильность.
+        </p>
+        <p className="leading-relaxed font-medium">
+          Это безопасный инструмент обратной связи между сотрудниками и руководством.
+        </p>
       </div>
       <div className="rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-700">
         <p className="font-medium text-gray-900">Прозрачность данных</p>

@@ -1,5 +1,6 @@
 """Seed demo data. Run from backend/: PYTHONPATH=. python -m scripts.seed"""
 
+import os
 import sys
 from datetime import date, timedelta
 from pathlib import Path
@@ -7,6 +8,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.auth import hash_password
+from app.config import settings
 from app.data.survey_methodology import seed_methodology_questions
 from app.database import Base, SessionLocal, engine
 from app.models import (
@@ -27,6 +29,18 @@ from app.services.recommendations_engine import generate_rule_based
 
 
 def main():
+    db_url = settings.database_url.lower()
+    is_postgres = "postgresql" in db_url or "postgres" in db_url
+    allow = os.environ.get("ALLOW_DEMO_SEED_ON_POSTGRES", "").strip().lower() in ("1", "true", "yes")
+    if is_postgres and not allow:
+        print(
+            "Отказ: seed стирает таблицы и заливает демо-данные. Для PostgreSQL задайте "
+            "ALLOW_DEMO_SEED_ON_POSTGRES=1 (только осознанно, например пустая dev-БД). "
+            "В продакшене seed не используйте; первый админ: python -m scripts.create_first_admin",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
     Base.metadata.create_all(bind=engine)
     db = SessionLocal()
     try:

@@ -8,6 +8,11 @@ import {
   Download,
   Mail,
   Users,
+  Plus,
+  X,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react";
 import { apiFetch, parseErrorMessage } from "@/api/client";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
@@ -95,6 +100,9 @@ export default function Employees() {
   const [newEmail, setNewEmail] = useState("");
   const [createMsg, setCreateMsg] = useState<string | null>(null);
   const [createBusy, setCreateBusy] = useState(false);
+  const [addFormOpen, setAddFormOpen] = useState(false);
+  const [sortKey, setSortKey] = useState<keyof Emp | null>(null);
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const nameError =
     newName.trim().length > 0 && latinRegex.test(newName)
       ? "Поле ФИО должно быть на кириллице."
@@ -197,94 +205,34 @@ export default function Employees() {
 
   const departments = useMemo(() => ["Все", ...deptOptions.map((d) => d.name)], [deptOptions]);
   const totalPages = Math.max(1, Math.ceil(totalEmployees / pageSize));
-  const filteredEmployees = employeesData;
+  const filteredEmployees = useMemo(() => {
+    if (!sortKey) return employeesData;
+    return [...employeesData].sort((a, b) => {
+      const av = a[sortKey];
+      const bv = b[sortKey];
+      if (av == null && bv == null) return 0;
+      if (av == null) return 1;
+      if (bv == null) return -1;
+      const cmp = typeof av === "number" && typeof bv === "number"
+        ? av - bv
+        : String(av).localeCompare(String(bv), "ru");
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+  }, [employeesData, sortKey, sortDir]);
 
   return (
     <div className="p-6">
-      <div className="mb-4 rounded-2xl border border-blue-100 bg-gradient-to-r from-blue-50 to-indigo-50 px-4 py-3 text-sm text-blue-900">
-        Команда и метрики по сотрудникам: добавляйте новых сотрудников и отслеживайте динамику ESSI.
-      </div>
-      <div className="mb-6 space-y-2">
-        <div className="flex flex-wrap items-center gap-2.5">
-          <h1 className="text-2xl font-bold text-gray-900">Сотрудники</h1>
-          <div className="hidden sm:flex items-center gap-2 rounded-2xl border border-blue-100 bg-blue-50 px-3 py-2">
-            <Users className="text-[#0052FF]" size={16} />
-            <span className="text-xs font-medium text-blue-900">Состав и динамика команды</span>
+      <div className="mb-6">
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center shadow-sm">
+            <Users className="text-[#0052FF]" size={26} />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Сотрудники</h1>
+            <p className="text-sm text-gray-600">Управление и мониторинг продуктивности и вовлеченности</p>
           </div>
         </div>
-        <p className="text-gray-600">
-          Управление и мониторинг продуктивности и вовлеченности сотрудников
-        </p>
       </div>
-
-      <form
-        onSubmit={(e) => void createEmployee(e)}
-        className="bg-white rounded-xl border border-gray-200 p-4 mb-6 space-y-3 shadow-sm"
-      >
-        <h2 className="text-sm font-semibold text-gray-800">Добавить сотрудника</h2>
-        {createMsg && <p className="text-sm text-red-600">{createMsg}</p>}
-        <div className="flex flex-wrap gap-3 items-start">
-          <div className="min-w-[220px] flex-1">
-            <input
-              className={`w-full h-11 border rounded-xl px-3 text-sm ${
-                nameError ? "border-red-400 bg-red-50" : "border-gray-300"
-              }`}
-              placeholder="ФИО"
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              required
-            />
-            {nameError && <p className="mt-1 text-xs text-red-600">{nameError}</p>}
-          </div>
-          <div className="min-w-[200px]">
-            <Select
-              value={newDeptId === "" ? "" : String(newDeptId)}
-              onValueChange={(value) => setNewDeptId(value === "" ? "" : Number(value))}
-            >
-              <SelectTrigger className="w-full h-11 rounded-xl border-gray-300 bg-white text-sm">
-                <SelectValue placeholder="Отдел" />
-              </SelectTrigger>
-              <SelectContent>
-                {deptOptions.map((d) => (
-                  <SelectItem key={d.id} value={String(d.id)}>
-                    {d.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="min-w-[220px] flex-1">
-            <input
-              className={`w-full h-11 border rounded-xl px-3 text-sm ${
-                positionError ? "border-red-400 bg-red-50" : "border-gray-300"
-              }`}
-              placeholder="Должность"
-              value={newPosition}
-              onChange={(e) => setNewPosition(e.target.value)}
-            />
-            {positionError && <p className="mt-1 text-xs text-red-600">{positionError}</p>}
-          </div>
-          <div className="min-w-[240px] flex-1">
-            <input
-              type="email"
-              className={`w-full h-11 border rounded-xl px-3 text-sm ${
-                emailError ? "border-red-400 bg-red-50" : "border-gray-300"
-              }`}
-              placeholder="Email"
-              value={newEmail}
-              onChange={(e) => setNewEmail(e.target.value)}
-            />
-            {emailError && <p className="mt-1 text-xs text-red-600">{emailError}</p>}
-          </div>
-          <button
-            type="submit"
-            disabled={createBusy || newDeptId === "" || hasValidationError}
-            className="h-11 px-5 rounded-xl bg-[#0052FF] text-white font-medium text-sm disabled:opacity-50"
-          >
-            {createBusy ? "…" : "Создать"}
-          </button>
-        </div>
-      </form>
 
       <div className="bg-white rounded-xl border border-gray-200 p-4 mb-6">
         <div className="flex flex-wrap items-center gap-4">
@@ -331,6 +279,18 @@ export default function Employees() {
           </div>
           <button
             type="button"
+            onClick={() => setAddFormOpen((v) => !v)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${
+              addFormOpen
+                ? "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                : "bg-gradient-to-r from-[#0052FF] to-[#4D7CFF] text-white hover:shadow-lg"
+            }`}
+          >
+            {addFormOpen ? <X size={18} /> : <Plus size={18} />}
+            <span>{addFormOpen ? "Закрыть" : "Добавить"}</span>
+          </button>
+          <button
+            type="button"
             onClick={() => exportEmployeesCsv(filteredEmployees)}
             disabled={filteredEmployees.length === 0}
             className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#0052FF] to-[#4D7CFF] text-white rounded-lg hover:shadow-lg transition-all disabled:opacity-50"
@@ -340,6 +300,82 @@ export default function Employees() {
           </button>
         </div>
       </div>
+
+      {addFormOpen && (
+        <form
+          onSubmit={(e) => void createEmployee(e)}
+          className="bg-white rounded-xl border border-gray-200 p-4 mb-6 space-y-3 shadow-sm"
+        >
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-gray-800">Добавить сотрудника</h2>
+            <button type="button" onClick={() => setAddFormOpen(false)} className="text-gray-400 hover:text-gray-600">
+              <X size={18} />
+            </button>
+          </div>
+          {createMsg && <p className="text-sm text-red-600">{createMsg}</p>}
+          <div className="flex flex-wrap gap-3 items-start">
+            <div className="min-w-[220px] flex-1">
+              <input
+                className={`w-full h-11 border rounded-xl px-3 text-sm ${
+                  nameError ? "border-red-400 bg-red-50" : "border-gray-300"
+                }`}
+                placeholder="ФИО"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                required
+              />
+              {nameError && <p className="mt-1 text-xs text-red-600">{nameError}</p>}
+            </div>
+            <div className="min-w-[200px]">
+              <Select
+                value={newDeptId === "" ? "" : String(newDeptId)}
+                onValueChange={(value) => setNewDeptId(value === "" ? "" : Number(value))}
+              >
+                <SelectTrigger className="w-full h-11 rounded-xl border-gray-300 bg-white text-sm">
+                  <SelectValue placeholder="Отдел" />
+                </SelectTrigger>
+                <SelectContent>
+                  {deptOptions.map((d) => (
+                    <SelectItem key={d.id} value={String(d.id)}>
+                      {d.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="min-w-[220px] flex-1">
+              <input
+                className={`w-full h-11 border rounded-xl px-3 text-sm ${
+                  positionError ? "border-red-400 bg-red-50" : "border-gray-300"
+                }`}
+                placeholder="Должность"
+                value={newPosition}
+                onChange={(e) => setNewPosition(e.target.value)}
+              />
+              {positionError && <p className="mt-1 text-xs text-red-600">{positionError}</p>}
+            </div>
+            <div className="min-w-[240px] flex-1">
+              <input
+                type="email"
+                className={`w-full h-11 border rounded-xl px-3 text-sm ${
+                  emailError ? "border-red-400 bg-red-50" : "border-gray-300"
+                }`}
+                placeholder="Email"
+                value={newEmail}
+                onChange={(e) => setNewEmail(e.target.value)}
+              />
+              {emailError && <p className="mt-1 text-xs text-red-600">{emailError}</p>}
+            </div>
+            <button
+              type="submit"
+              disabled={createBusy || newDeptId === "" || hasValidationError}
+              className="h-11 px-5 rounded-xl bg-[#0052FF] text-white font-medium text-sm disabled:opacity-50"
+            >
+              {createBusy ? "…" : "Создать"}
+            </button>
+          </div>
+        </form>
+      )}
 
       <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-6">
         <div className="bg-white rounded-xl border border-gray-200 p-4">
@@ -390,21 +426,41 @@ export default function Employees() {
       )}
 
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <div className="px-6 py-3 text-xs text-gray-500 border-b border-gray-100">
-          Показано {filteredEmployees.length} из {totalEmployees}
-        </div>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200">
-                <th className="text-left py-4 px-6 text-sm font-semibold text-gray-700">Сотрудник</th>
-                <th className="text-left py-4 px-6 text-sm font-semibold text-gray-700">Должность</th>
-                <th className="text-left py-4 px-6 text-sm font-semibold text-gray-700">Отдел</th>
-                <th className="text-left py-4 px-6 text-sm font-semibold text-gray-700">ESSI</th>
-                <th className="text-left py-4 px-6 text-sm font-semibold text-gray-700">Вовлеченность</th>
-                <th className="text-left py-4 px-6 text-sm font-semibold text-gray-700">Продуктивность</th>
-                <th className="text-left py-4 px-6 text-sm font-semibold text-gray-700">Статус</th>
-                <th className="text-left py-4 px-6 text-sm font-semibold text-gray-700">Тренд</th>
+                {([
+                  ["name", "Сотрудник"],
+                  ["position", "Должность"],
+                  ["department", "Отдел"],
+                  ["essi", "ESSI"],
+                  ["engagement", "Вовлеченность"],
+                  ["productivity", "Продуктивность"],
+                  ["status", "Статус"],
+                  ["trend", "Тренд"],
+                ] as [keyof Emp, string][]).map(([key, label]) => (
+                  <th
+                    key={key}
+                    className="text-left py-4 px-6 text-sm font-semibold text-gray-700 cursor-pointer select-none hover:bg-gray-100 transition-colors"
+                    onClick={() => {
+                      if (sortKey === key) {
+                        if (sortDir === "asc") setSortDir("desc");
+                        else { setSortKey(null); setSortDir("asc"); }
+                      } else {
+                        setSortKey(key);
+                        setSortDir("asc");
+                      }
+                    }}
+                  >
+                    <span className="inline-flex items-center gap-1">
+                      {label}
+                      {sortKey === key
+                        ? (sortDir === "asc" ? <ArrowUp size={14} /> : <ArrowDown size={14} />)
+                        : <ArrowUpDown size={14} className="text-gray-400" />}
+                    </span>
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>

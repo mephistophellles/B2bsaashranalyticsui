@@ -10,6 +10,8 @@ type Q = { id: number; block_index: number; order_in_block: number; text: string
 const CONSENT_KEY = "potential_pd_consent_v1";
 const SURVEY_SHUFFLE_SEED_KEY = "potential_survey_shuffle_seed_v1";
 
+const SURVEY_SUCCESS_MESSAGE = "Спасибо! Ответы сохранены.";
+
 const FALLBACK_BLOCK_TITLES: Record<number, string> = {
   1: "Блок 1",
   2: "Блок 2",
@@ -99,7 +101,7 @@ export default function Survey() {
       sessionStorage.setItem(CONSENT_KEY, "1");
       setConsentOk(true);
     } catch {
-      setMsg("Ошибка сети");
+      setMsg("Произошла ошибка. Попробуйте повторить действие.");
     } finally {
       setConsentBusy(false);
     }
@@ -131,10 +133,10 @@ export default function Survey() {
         method: "POST",
         body: JSON.stringify(payload),
       });
-      if (res.ok) setMsg("Спасибо! Ответы сохранены.");
+      if (res.ok) setMsg(SURVEY_SUCCESS_MESSAGE);
       else setMsg(await parseErrorMessage(res));
     } catch {
-      setMsg("Ошибка сети. Проверьте подключение и попробуйте снова.");
+      setMsg("Произошла ошибка. Попробуйте повторить действие.");
     } finally {
       setSubmitBusy(false);
     }
@@ -180,11 +182,15 @@ export default function Survey() {
     );
   }
 
-  if (msg === "Спасибо! Ответы сохранены.") {
+  if (msg === SURVEY_SUCCESS_MESSAGE) {
     return (
       <div className="p-6 max-w-xl rounded-2xl border border-green-200 bg-green-50/80 text-green-900 space-y-4">
         <h2 className="text-xl font-bold">Спасибо!</h2>
-        <p className="text-sm">Ваши ответы сохранены.</p>
+        <div className="text-sm space-y-2 leading-relaxed">
+          <p>Результат сформирован на основе ваших ответов и отражает текущую рабочую ситуацию.</p>
+          <p>Он может изменяться при изменении условий работы.</p>
+          <p>Результат используется для улучшения процессов и условий внутри команды.</p>
+        </div>
         <Link
           to="/my-recommendations"
           className="inline-flex px-4 py-2 rounded-xl bg-green-700 text-white text-sm font-medium hover:bg-green-800"
@@ -208,12 +214,17 @@ export default function Survey() {
         {campaignId != null && (
           <p className="text-sm text-[#0052FF] font-medium mt-1">Кампания #{campaignId}</p>
         )}
-        <p className="text-sm text-gray-500 mt-1">
+        <div className="mt-3 rounded-xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm text-gray-700 space-y-2 leading-relaxed">
+          <p>Диагностика позволяет выявить факторы, влияющие на работу, и определить возможные улучшения.</p>
+          <p>Чем точнее ответы, тем более точными будут рекомендации.</p>
+          <p>Результаты не используются для оценки и не влекут негативных последствий.</p>
+        </div>
+        <p className="text-sm text-gray-500 mt-3">
           Блок {blockStep + 1} из {blocks.length || 1}. Шкала Лайкерта: 1 — полностью не согласен; 2 — скорее не
           согласен; 3 — затрудняюсь ответить; 4 — скорее согласен; 5 — полностью согласен.
         </p>
         <p className="text-sm text-blue-900 mt-2 rounded-xl border border-blue-100 bg-blue-50 px-3 py-2">
-          Ответы помогают улучшать среду работы, а не оценивать человека по одному ответу.
+          Система анализирует данные в динамике. Показатели отражают текущую рабочую ситуацию.
         </p>
       </div>
       <EmployeeTrustFAQ compact />
@@ -223,6 +234,9 @@ export default function Survey() {
           style={{ width: `${progress}%` }}
         />
       </div>
+      <p className="text-xs text-gray-600 leading-relaxed">
+        Отвечайте, исходя из текущей ситуации. Система анализирует общие закономерности, а не отдельные ответы.
+      </p>
       {current && (
         <div className="space-y-5 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
           <h2 className="text-sm font-semibold text-[#0052FF] uppercase tracking-wide">
@@ -252,7 +266,7 @@ export default function Survey() {
           ))}
         </div>
       )}
-      {msg && msg !== "Спасибо! Ответы сохранены." && (
+      {msg && msg !== SURVEY_SUCCESS_MESSAGE && (
         <div className="text-sm text-amber-800 bg-amber-50 border border-amber-100 rounded-xl px-4 py-2">{msg}</div>
       )}
       <div className="flex flex-wrap gap-3">

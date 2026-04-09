@@ -31,7 +31,7 @@ export default function Login() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#FAFAFA] text-gray-600">
-        Загрузка…
+        Идёт обработка данных…
       </div>
     );
   }
@@ -39,7 +39,20 @@ export default function Login() {
   return (
     <div className="min-h-screen bg-[#F3F4F6] p-4 md:p-6">
       <div className="mx-auto max-w-6xl rounded-2xl overflow-hidden border border-gray-200 bg-white shadow-sm min-h-[78vh] grid grid-cols-1 lg:grid-cols-[1.05fr_1.45fr]">
-        <aside className="bg-gradient-to-br from-[#0F5CBD] to-[#0A4A99] text-white p-10 lg:p-12 flex flex-col justify-between">
+        <aside
+          className="text-white p-10 lg:p-12 flex flex-col justify-between"
+          style={{
+            backgroundColor: "#0A4D9A",
+            backgroundImage: `
+              linear-gradient(135deg, #0A3F86 0%, #0A4D9A 42%, #0D5CB4 100%),
+              radial-gradient(120% 70% at -10% 10%, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0) 75%),
+              radial-gradient(140% 75% at 115% 35%, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0) 78%),
+              radial-gradient(160% 80% at -15% 75%, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0) 82%),
+              radial-gradient(150% 85% at 110% 105%, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0) 85%)
+            `,
+            backgroundBlendMode: "normal, screen, screen, screen, screen",
+          }}
+        >
           <div className="space-y-8 mt-5 lg:mt-8">
             <div>
               <h1 className="text-4xl font-bold leading-tight">ПОТЕНКОР</h1>
@@ -91,7 +104,7 @@ export default function Login() {
             <button
               type="submit"
               disabled={submitting}
-              className="w-full h-12 rounded-xl font-semibold text-white bg-gradient-to-r from-[#0052FF] to-[#4D7CFF] hover:opacity-95 disabled:opacity-60 shadow-md"
+              className="w-full h-12 rounded-xl font-semibold text-white bg-[#005AB6] hover:bg-[#004E9E] disabled:opacity-60 shadow-md transition-colors"
             >
               {submitting ? "Вход…" : "Войти"}
             </button>

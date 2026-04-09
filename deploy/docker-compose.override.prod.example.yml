@@ -1,0 +1,13 @@
+# Пример override для прод-подобного запуска локально или на сервере.
+# Скопируйте в docker-compose.override.yml рядом с docker-compose.yml (Compose подхватит автоматически)
+# или: docker compose -f docker-compose.yml -f deploy/docker-compose.override.prod.example.yml up -d
+#
+# Перед первым запуском: задайте сильный SECRET_KEY в environment или .env (не коммитить).
+
+services:
+  api:
+    environment:
+      RUN_CREATE_ALL: "false"
+      RUN_MIGRATIONS_ON_START: "true"
+      POTENTIAL_ENV: production
+      # SECRET_KEY: <задайте в .env или секретах оркестратора>

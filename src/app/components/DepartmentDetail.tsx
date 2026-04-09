@@ -88,7 +88,8 @@ export default function DepartmentDetail() {
         <Link to="/departments" className="text-[#0052FF] text-sm inline-flex items-center gap-1">
           <ArrowLeft size={16} /> К отделам
         </Link>
-        <p className="text-red-600 mt-4">{err}</p>
+        <p className="text-red-600 mt-4 font-medium">Произошла ошибка. Попробуйте повторить действие.</p>
+        <p className="text-sm text-gray-600 mt-2">{err}</p>
       </div>
     );
   }

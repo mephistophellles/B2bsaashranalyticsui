@@ -41,7 +41,8 @@ export default function MySurveyDetail() {
         <Link to="/" className="inline-flex items-center gap-2 text-sm text-[#0052FF] hover:underline">
           <ArrowLeft size={16} /> На главную
         </Link>
-        <p className="text-sm text-red-600">{err}</p>
+        <p className="text-sm font-medium text-red-600">Произошла ошибка. Попробуйте повторить действие.</p>
+        <p className="text-sm text-red-700/90 mt-1">{err}</p>
       </div>
     );
   }
@@ -49,7 +50,7 @@ export default function MySurveyDetail() {
   if (!row) {
     return (
       <div className="p-6 text-gray-500 flex items-center justify-center min-h-[30vh]">
-        Загрузка…
+        Идёт обработка данных…
       </div>
     );
   }

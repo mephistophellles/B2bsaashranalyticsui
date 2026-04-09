@@ -124,6 +124,11 @@
     @apply border-border outline-ring/50;
   }
 
+  html,
+  body {
+    @apply overflow-hidden h-full;
+  }
+
   body {
     @apply bg-background text-foreground;
   }
@@ -177,5 +182,39 @@
     font-size: var(--text-base);
     font-weight: var(--font-weight-normal);
     line-height: 1.5;
+  }
+}
+
+@media print {
+  html, body {
+    overflow: visible !important;
+    height: auto !important;
+  }
+
+  body > #root > div > aside,
+  body > #root > div > div > header,
+  [data-no-print] {
+    display: none !important;
+  }
+
+  body > #root > div,
+  body > #root > div > div,
+  body > #root > div > div > main {
+    overflow: visible !important;
+    height: auto !important;
+    display: block !important;
+  }
+
+  [data-print-report] {
+    break-inside: avoid-column;
+  }
+
+  [data-print-report] section {
+    break-inside: avoid;
+  }
+
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 }

@@ -220,7 +220,7 @@ function AdminAuditLog() {
           onClick={() => void refresh()}
           className="px-4 py-2 rounded-xl border border-gray-300 font-medium hover:bg-gray-50 disabled:opacity-50"
         >
-          {busy ? "Загрузка…" : "Обновить"}
+          {busy ? "Обработка…" : "Обновить"}
         </button>
         <button
           type="button"
@@ -235,7 +235,12 @@ function AdminAuditLog() {
           Экспорт CSV
         </button>
       </div>
-      {err && <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl px-3 py-2">{err}</p>}
+      {err && (
+        <div className="text-sm bg-red-50 border border-red-100 rounded-xl px-3 py-2 space-y-1">
+          <p className="font-medium text-red-600">Произошла ошибка. Попробуйте повторить действие.</p>
+          <p className="text-red-700/90">{err}</p>
+        </div>
+      )}
       <div className="border border-gray-200 rounded-xl overflow-hidden overflow-x-auto max-h-[28rem] overflow-y-auto">
         <table className="w-full text-xs text-left">
           <thead className="bg-gray-50 sticky top-0 z-10">
@@ -276,7 +281,7 @@ function AdminAuditLog() {
           onClick={() => void loadMore()}
           className="px-4 py-2 rounded-xl border border-[#0052FF] text-[#0052FF] font-medium hover:bg-blue-50 disabled:opacity-50"
         >
-          {busy ? "Загрузка…" : "Загрузить ещё"}
+          {busy ? "Обработка…" : "Загрузить ещё"}
         </button>
       )}
     </div>
@@ -523,14 +528,8 @@ export default function Settings() {
           <SettingsIcon className="text-[#0052FF]" size={26} />
         </div>
         <div>
-          <div className="flex flex-wrap items-center gap-2.5">
-            <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Настройки</h1>
-            <div className="hidden sm:flex items-center gap-2 rounded-2xl border border-blue-100 bg-blue-50 px-3 py-2">
-              <SettingsIcon className="text-[#0052FF]" size={16} />
-              <span className="text-xs font-medium text-blue-900">Профиль и доступы системы</span>
-            </div>
-          </div>
-          <p className="text-gray-600 text-sm">Профиль и администрирование</p>
+          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Настройки</h1>
+          <p className="text-sm text-gray-600">Профиль и администрирование</p>
         </div>
       </div>
 
@@ -540,7 +539,7 @@ export default function Settings() {
           Профиль
         </h2>
         {loading ? (
-          <p className="text-sm text-gray-500">Загрузка…</p>
+          <p className="text-sm text-gray-500">Идёт обработка данных…</p>
         ) : user ? (
           <dl className="grid gap-2 text-sm">
             <div className="flex gap-2">
@@ -560,7 +559,7 @@ export default function Settings() {
           </dl>
         ) : (
           <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl px-3 py-2">
-            Не удалось загрузить профиль. Выполните повторный{" "}
+            Произошла ошибка. Попробуйте повторить действие или выполните повторный{" "}
             <Link to="/login" className="underline font-medium">
               вход
             </Link>
@@ -582,17 +581,6 @@ export default function Settings() {
         </>
       )}
 
-      {user && user.role !== "employee" && (
-        <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50/80 p-4 text-sm text-gray-600">
-          Нет данных на дашборде? Выполните{" "}
-          <code className="text-xs bg-white px-1 rounded border">python -m scripts.seed</code> в каталоге{" "}
-          <code className="text-xs bg-white px-1 rounded border">backend</code> или загрузите CSV на странице{" "}
-          <Link to="/reports" className="text-[#0052FF] font-medium hover:underline">
-            «Отчёты»
-          </Link>
-          .
-        </div>
-      )}
     </div>
   );
 }

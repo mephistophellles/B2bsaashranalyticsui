@@ -85,19 +85,21 @@ def _top_risk_employees(db: Session, limit: int = 5) -> list[dict[str, Any]]:
                 "what_it_means": (
                     "Требуется срочное управленческое вмешательство."
                     if row.essi < 40
-                    else "Есть выраженный риск снижения устойчивости."
+                    else "Требует управленческого внимания."
                     if row.essi < 60
                     else "Состояние приемлемое, но требует мониторинга."
                 ),
                 "reason_text": (
-                    "Низкое значение интегрального индекса ESSI."
+                    "Наблюдается негативная динамика по интегральному индексу."
+                    if row.essi < 40
+                    else "Снижение показателя связано с текущими изменениями условий."
                     if row.essi < 60
-                    else "Индекс близок к стабильной зоне, влияние факторов умеренное."
+                    else "Наблюдается устойчивый профиль; влияние факторов умеренное."
                 ),
                 "actions": (
-                    "Согласовать индивидуальный план поддержки, проверить нагрузку и коммуникации."
+                    "При отсутствии действий возможен рост рисков; согласовать план поддержки и контрольный замер."
                     if row.essi < 60
-                    else "Сохранить рабочие практики и провести контрольный замер."
+                    else "Сохранить практики и провести контрольный замер."
                 ),
             }
         )
@@ -129,13 +131,13 @@ def build_decision_report(db: Session, *, months: int = 6) -> dict[str, Any]:
                 "title": rec.title,
                 "source": explain["source"],
                 "reasons": explain["structured_reasons"][:4],
-                "what_it_means": "Сигнал, почему показатель устойчивости изменяется.",
+                "what_it_means": "Система выявляет факторы, которые оказывают наибольшее влияние на результат.",
                 "reason_text": (
                     explain["structured_reasons"][0]["detail"]
                     if explain["structured_reasons"]
                     else "Недостаточно факторов, использован rule fallback."
                 ),
-                "actions": "Устранить первопричину в блоках с наибольшим вкладом и повторить замер.",
+                "actions": "Рекомендуется выполнить действия, направленные на стабилизацию состояния и снижение рисков.",
             }
         )
         recommendation_rows.append(
@@ -148,13 +150,13 @@ def build_decision_report(db: Session, *, months: int = 6) -> dict[str, Any]:
                 "source": explain["source"],
                 "expected_effect": explain["expected_effect"],
                 "structured_reasons": explain["structured_reasons"][:4],
-                "what_it_means": "Приоритетная управленческая мера для стабилизации ESSI.",
+                "what_it_means": "Рекомендации направлены на улучшение состояния.",
                 "reason_text": (
                     explain["structured_reasons"][0]["detail"]
                     if explain["structured_reasons"]
                     else "Рекомендация основана на базовых правилах."
                 ),
-                "actions": "Назначить ответственного, срок исполнения и метрику проверки эффекта.",
+                "actions": "Назначить ответственного, срок и метрику проверки; результат оценить через повторную диагностику.",
             }
         )
 
@@ -209,9 +211,9 @@ def build_decision_report(db: Session, *, months: int = 6) -> dict[str, Any]:
             "risk_at_risk_total": int(dashboard.get("risk_at_risk_total", 0)),
             "risk_indexed_employees": int(dashboard.get("risk_indexed_employees", 0)),
             "summary": [
-                f"Текущий ESSI: {essi_score:.1f}.",
-                f"В зоне риска: {int(dashboard.get('risk_at_risk_total', 0))} сотрудников.",
-                "Рекомендуется фокус на рисковых блоках и выполнении приоритетных рекомендаций.",
+                f"Текущий ESSI: {essi_score:.1f}. Выводы основаны на совокупности факторов и анализе динамики.",
+                f"В зоне риска по методике: {int(dashboard.get('risk_at_risk_total', 0))} сотрудников.",
+                "Выявлены зоны, требующие внимания; рекомендуется стабилизация состояния и приоритетные действия.",
             ],
         },
         "dynamics": {
@@ -226,10 +228,10 @@ def build_decision_report(db: Session, *, months: int = 6) -> dict[str, Any]:
                 "block_index": int(item.get("block_index", 0)),
                 "title": str(item.get("title", "")),
                 "value": float(item.get("value", 0.0)),
-                "note": "Стабильная опора команды, рекомендуется масштабировать практики.",
-                "what_it_means": "Блок поддерживает устойчивость и снижает управленческую неопределенность.",
-                "reason_text": "Высокое значение блока в сравнении с другими компонентами ESSI.",
-                "actions": "Зафиксировать практики блока и масштабировать их на соседние команды.",
+                "note": "Сильные стороны поддерживают устойчивость команды.",
+                "what_it_means": "Сильные стороны создают устойчивую основу для работы и поддерживают стабильность.",
+                "reason_text": "Стабильные показатели создают основу для эффективной работы.",
+                "actions": "Эти факторы можно использовать как точки опоры для дальнейшего развития.",
             }
             for item in strongest
         ],

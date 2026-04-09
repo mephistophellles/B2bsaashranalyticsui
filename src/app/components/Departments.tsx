@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router";
-import { Building2, Pencil, Trash2 } from "lucide-react";
+import { Building2, Pencil, Trash2, Plus, X } from "lucide-react";
 import { apiFetch, parseErrorMessage } from "@/api/client";
 import {
   Dialog,
@@ -35,6 +35,7 @@ export default function Departments() {
   const [renameBusy, setRenameBusy] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Row | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
+  const [addFormOpen, setAddFormOpen] = useState(false);
 
   const load = useCallback(async () => {
     const params = new URLSearchParams({
@@ -120,52 +121,25 @@ export default function Departments() {
 
   return (
     <div className="p-6 space-y-6">
-      <div className="rounded-2xl border border-blue-100 bg-gradient-to-r from-blue-50 to-indigo-50 px-4 py-3 text-sm text-blue-900">
-        Управляйте структурой отделов и сравнивайте их вклад в ESSI.
-      </div>
-      <div className="space-y-2">
-        <div className="flex flex-wrap items-center gap-2.5">
-          <h1 className="text-2xl font-bold text-gray-900">Отделы</h1>
-          <div className="hidden sm:flex items-center gap-2 rounded-2xl border border-blue-100 bg-blue-50 px-3 py-2">
-            <Building2 className="text-[#0052FF]" size={16} />
-            <span className="text-xs font-medium text-blue-900">Структура организации</span>
-          </div>
+      <div className="flex items-center gap-3">
+        <div className="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center shadow-sm">
+          <Building2 className="text-[#0052FF]" size={26} />
         </div>
-        <p className="text-gray-600">Сводка, создание и редактирование</p>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Отделы</h1>
+          <p className="text-sm text-gray-600">Сводка, создание и редактирование</p>
+        </div>
       </div>
 
       {msg && (
         <div className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl px-4 py-2">{msg}</div>
       )}
 
-      <form
-        onSubmit={(e) => void createDept(e)}
-        className="bg-white rounded-xl border border-gray-200 p-4 flex flex-wrap gap-3 items-end max-w-xl"
-      >
-        <label className="flex-1 min-w-[200px] text-sm">
-          Новый отдел
-          <input
-            className="mt-1 w-full border rounded-xl px-3 py-2"
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            placeholder="Название"
-            required
-          />
-        </label>
-        <button
-          type="submit"
-          disabled={busy}
-          className="px-4 py-2 rounded-xl bg-[#0052FF] text-white font-medium disabled:opacity-50"
-        >
-          {busy ? "…" : "Создать"}
-        </button>
-      </form>
-
       <div className="bg-white rounded-xl border border-gray-200 p-4 flex flex-wrap gap-3 items-end">
-        <label className="text-sm text-gray-600">
+        <label className="text-sm text-gray-600 flex flex-col gap-1">
           Поиск
           <input
-            className="mt-1 h-11 border rounded-xl px-3 w-56"
+            className="h-11 border rounded-xl px-3 w-56"
             placeholder="Название отдела"
             value={q}
             onChange={(e) => {
@@ -174,7 +148,7 @@ export default function Departments() {
             }}
           />
         </label>
-        <label className="text-sm text-gray-600">
+        <label className="text-sm text-gray-600 flex flex-col gap-1">
           Сортировка
           <Select
             value={sortBy}
@@ -183,7 +157,7 @@ export default function Departments() {
               setPage(1);
             }}
           >
-            <SelectTrigger className="mt-1 h-11 min-w-44 rounded-xl border-gray-300 bg-white">
+            <SelectTrigger className="h-11 min-w-44 rounded-xl border-gray-300 bg-white">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -193,7 +167,7 @@ export default function Departments() {
             </SelectContent>
           </Select>
         </label>
-        <label className="text-sm text-gray-600">
+        <label className="text-sm text-gray-600 flex flex-col gap-1">
           Порядок
           <Select
             value={sortOrder}
@@ -202,7 +176,7 @@ export default function Departments() {
               setPage(1);
             }}
           >
-            <SelectTrigger className="mt-1 h-11 min-w-44 rounded-xl border-gray-300 bg-white">
+            <SelectTrigger className="h-11 min-w-44 rounded-xl border-gray-300 bg-white">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -211,7 +185,52 @@ export default function Departments() {
             </SelectContent>
           </Select>
         </label>
+        <div className="ml-auto">
+          <button
+            type="button"
+            onClick={() => setAddFormOpen((v) => !v)}
+            className={`flex items-center gap-2 h-11 px-4 rounded-xl font-medium text-sm transition-all ${
+              addFormOpen
+                ? "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                : "bg-gradient-to-r from-[#0052FF] to-[#4D7CFF] text-white hover:shadow-lg"
+            }`}
+          >
+            {addFormOpen ? <X size={18} /> : <Plus size={18} />}
+            <span>{addFormOpen ? "Закрыть" : "Добавить отдел"}</span>
+          </button>
+        </div>
       </div>
+
+      {addFormOpen && (
+        <form
+          onSubmit={(e) => void createDept(e)}
+          className="bg-white rounded-xl border border-gray-200 p-4 flex flex-wrap gap-3 items-end shadow-sm"
+        >
+          <div className="flex items-center justify-between w-full mb-1">
+            <h2 className="text-sm font-semibold text-gray-800">Новый отдел</h2>
+            <button type="button" onClick={() => setAddFormOpen(false)} className="text-gray-400 hover:text-gray-600">
+              <X size={18} />
+            </button>
+          </div>
+          <label className="flex-1 min-w-[200px] text-sm text-gray-600 flex flex-col gap-1">
+            Название
+            <input
+              className="w-full border rounded-xl px-3 py-2"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              placeholder="Введите название отдела"
+              required
+            />
+          </label>
+          <button
+            type="submit"
+            disabled={busy}
+            className="px-4 py-2 rounded-xl bg-[#0052FF] text-white font-medium disabled:opacity-50"
+          >
+            {busy ? "…" : "Создать"}
+          </button>
+        </form>
+      )}
 
       {rows.length === 0 && (
         <div className="rounded-2xl border border-dashed border-gray-200 bg-white p-8 text-center text-gray-500">

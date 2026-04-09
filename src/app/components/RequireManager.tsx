@@ -7,7 +7,7 @@ export default function RequireManager() {
   if (loading) {
     return (
       <div className="p-6 text-gray-500 flex justify-center min-h-[30vh] items-center">
-        Загрузка…
+        Идёт обработка данных…
       </div>
     );
   }

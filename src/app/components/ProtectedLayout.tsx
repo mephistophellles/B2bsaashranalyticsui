@@ -35,7 +35,7 @@ export default function ProtectedLayout() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#FAFAFA] text-gray-600">
-        Загрузка…
+        Идёт обработка данных…
       </div>
     );
   }
@@ -43,7 +43,7 @@ export default function ProtectedLayout() {
   if (!consentChecked) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#FAFAFA] text-gray-600">
-        Проверка согласия…
+        Идёт обработка данных…
       </div>
     );
   }

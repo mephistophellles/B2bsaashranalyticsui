@@ -30,7 +30,7 @@ export default function GlobalSearch() {
       setHits(await res.json());
     } else {
       setHits([]);
-      setError("Ошибка поиска");
+      setError("Произошла ошибка. Попробуйте повторить действие.");
     }
     setBusy(false);
   }, []);
@@ -84,7 +84,7 @@ export default function GlobalSearch() {
             <p className="px-3 py-2 text-xs text-gray-500">Начните ввод для поиска</p>
           )}
           {q.trim().length >= 1 && busy && (
-            <p className="px-3 py-2 text-xs text-gray-500">Поиск...</p>
+            <p className="px-3 py-2 text-xs text-gray-500">Идёт обработка данных…</p>
           )}
           {q.trim().length >= 1 && !busy && error && (
             <p className="px-3 py-2 text-xs text-red-600">{error}</p>

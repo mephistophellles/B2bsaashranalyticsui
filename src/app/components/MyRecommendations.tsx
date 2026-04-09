@@ -12,6 +12,7 @@ type Rec = {
   status: string;
   created_at: string;
   model_version: string | null;
+  rationale?: string | null;
   expected_effect?: string | null;
   problem?: string | null;
   cause?: string | null;
@@ -79,6 +80,9 @@ export default function MyRecommendations() {
           <p className="text-xs text-gray-500 mt-1">
             Это рекомендации для улучшения условий работы в команде, а не персональная оценка сотрудника.
           </p>
+          <p className="text-xs text-gray-500 mt-1 leading-relaxed">
+            Система анализирует данные в динамике. Показатели отражают текущую рабочую ситуацию.
+          </p>
         </div>
       </div>
       {err && (
@@ -105,6 +109,11 @@ export default function MyRecommendations() {
           >
             <div className="font-semibold text-gray-900">{r.title}</div>
             <div className="text-sm text-gray-600 mt-2 leading-relaxed line-clamp-3">{r.description}</div>
+            {r.rationale && (
+              <div className="mt-2 text-xs text-gray-600 rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5">
+                Основание: {r.rationale}
+              </div>
+            )}
             {(r.problem || r.cause || r.action) && (
               <div className="mt-2 grid gap-1 text-xs rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-blue-900">
                 {r.problem && <div><span className="font-semibold">Проблема:</span> {r.problem}</div>}
@@ -133,6 +142,12 @@ export default function MyRecommendations() {
         ))}
       </div>
 
+      {!err && items.length > 0 && (
+        <p className="text-sm text-gray-600 leading-relaxed">
+          Результат можно оценить через повторную диагностику.
+        </p>
+      )}
+
       {selected && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40"
@@ -160,6 +175,11 @@ export default function MyRecommendations() {
               </button>
             </div>
             <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{selected.description}</p>
+            {selected.rationale && (
+              <p className="text-xs text-gray-600 mt-3 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                Основание: {selected.rationale}
+              </p>
+            )}
             {(selected.problem || selected.cause || selected.action) && (
               <div className="mt-3 rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-900 space-y-1">
                 {selected.problem && <p><span className="font-semibold">Проблема:</span> {selected.problem}</p>}
@@ -177,6 +197,9 @@ export default function MyRecommendations() {
               <span>Приоритет: {selected.priority}</span>
               {selected.model_version && <span>Версия: {selected.model_version}</span>}
             </div>
+            <p className="text-xs text-gray-600 mt-4 leading-relaxed">
+              Результат можно оценить через повторную диагностику.
+            </p>
             <div className="mt-6">
               <button
                 type="button"

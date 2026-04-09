@@ -16,6 +16,8 @@ uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 
 По умолчанию SQLite: файл `backend/potential.db` (абсолютный путь, не зависит от каталога, из которого запущен uvicorn). Для PostgreSQL задайте `DATABASE_URL`. Если в БД ещё нет пользователей, при старте API для SQLite создаются демо-учётки; полный датасет — по-прежнему `python -m scripts.seed`.
 
+**PostgreSQL и seed:** `python -m scripts.seed` **заблокирован** для Postgres, пока явно не задано `ALLOW_DEMO_SEED_ON_POSTGRES=1` (чтобы не стереть боевую БД). В проде seed не используйте. Первый администратор на пустой таблице `users`: `PYTHONPATH=. python -m scripts.create_first_admin --username admin --password "..."`.
+
 **Схема БД:** по умолчанию при старте вызывается `Base.metadata.create_all` (удобно для локального dev). В продакшене задайте **`RUN_CREATE_ALL=false`**, чтобы не вызывать `create_all` при деплое, и применяйте только **`alembic upgrade head`** (см. `alembic/README.md`). `create_all` **не заменяет миграции**: у уже существующей базы он не добавит новые таблицы и колонки.
 
 ### Просмотр данных в БД
@@ -25,7 +27,9 @@ uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
   - CLI: `sqlite3 backend/potential.db` → `.tables`, `SELECT * FROM users LIMIT 5;`
 - **PostgreSQL:** задайте `DATABASE_URL=postgresql+psycopg2://user:pass@host:5432/dbname` и подключайтесь через `psql`, pgAdmin, DBeaver и т.п.
 
-Метрики процесса API (Prometheus): эндпоинт **`GET /metrics`** (см. `prometheus-fastapi-instrumentator` в коде).
+Проверка живости: **`GET /health`**. Метрики (Prometheus): **`GET /metrics`** (см. `prometheus-fastapi-instrumentator` в коде).
+
+**Полный чеклист продакшена:** [`deploy/PRODUCTION.md`](../deploy/PRODUCTION.md) (секреты, миграции, SPA, Docker override, ML/Celery).
 
 Демо-учётки: `manager` / `manager123`, `admin` / `admin123`, `employee` / `employee123`.
 

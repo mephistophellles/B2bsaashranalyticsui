@@ -157,6 +157,29 @@ def create_report(
     return ReportExportOut(id=rep.id, kind=rep.kind, status=rep.status.value, download_url=None, detail=None)
 
 
+@router.get("/decision-pdf")
+def download_decision_pdf_direct(
+    db: Session = Depends(get_db),
+    user: User = Depends(require_roles(UserRole.manager, UserRole.admin)),
+    months: int = Query(6, ge=3, le=24, description="Период анализа, как в управленческом отчёте"),
+):
+    """Синхронная генерация PDF (без фоновой задачи) — сразу скачивание файла."""
+    from app.tasks import _render_decision_pdf
+
+    decision = build_decision_report(db, months=months)
+    tmpdir = os.path.join(tempfile.gettempdir(), "potential_reports")
+    os.makedirs(tmpdir, exist_ok=True)
+    safe_ts = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    filename = f"upravlencheskiy_otchet_{safe_ts}.pdf"
+    path = os.path.join(tmpdir, filename)
+    _render_decision_pdf(path, decision)
+    return FileResponse(
+        path,
+        filename=filename,
+        media_type="application/pdf",
+    )
+
+
 @router.get("/demo-template")
 def download_demo_template(
     user: User = Depends(require_roles(UserRole.manager, UserRole.admin)),

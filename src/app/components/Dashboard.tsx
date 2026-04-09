@@ -88,6 +88,10 @@ export default function Dashboard() {
   const [months, setMonths] = useState(6);
   const [events, setEvents] = useState<EventPoint[]>([]);
   const [periodOpen, setPeriodOpen] = useState(false);
+  const [essiBreakdownOpen, setEssiBreakdownOpen] = useState(false);
+  const [engagementOpen, setEngagementOpen] = useState(false);
+  const [riskOpen, setRiskOpen] = useState(false);
+  const [productivityOpen, setProductivityOpen] = useState(false);
   const periodRef = useRef<HTMLDivElement>(null);
 
   function renderTrend(trend: string) {
@@ -102,7 +106,7 @@ export default function Dashboard() {
       setError(null);
       const res = await apiFetch(`/reports/dashboard?months=${months}`);
       if (!res.ok) {
-        setError("Не удалось загрузить дашборд");
+        setError("Произошла ошибка. Попробуйте повторить действие.");
         setData(null);
         return;
       }
@@ -133,7 +137,7 @@ export default function Dashboard() {
   if (!data) {
     return (
       <div className="p-6 text-gray-500 flex items-center justify-center min-h-[40vh]">
-        Загрузка…
+        Идёт обработка данных. Это займёт несколько секунд.
       </div>
     );
   }
@@ -155,15 +159,13 @@ export default function Dashboard() {
 
   return (
     <div className="p-6 space-y-6">
-      <div className="rounded-2xl border border-blue-100 bg-gradient-to-r from-blue-50 to-indigo-50 px-4 py-3 text-sm text-blue-900">
-        Единая панель устойчивости: следите за индексом ESSI, рисками и вкладом отделов.
-      </div>
       <div className="flex flex-wrap gap-3 items-center justify-between">
-        <div className="flex items-center gap-2.5">
-          <h1 className="text-2xl font-bold text-gray-900">Главная</h1>
-          <div className="hidden sm:flex items-center gap-2 rounded-2xl border border-blue-100 bg-blue-50 px-3 py-2">
-            <Activity className="text-[#0052FF]" size={16} />
-            <span className="text-xs font-medium text-blue-900">Аналитический центр ESSI</span>
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center shadow-sm">
+            <Activity className="text-[#0052FF]" size={26} />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Главная</h1>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -196,12 +198,18 @@ export default function Dashboard() {
         </div>
       </div>
       {sparseData && (
-        <div className="rounded-2xl border border-amber-200 bg-amber-50/90 px-4 py-3 text-sm text-amber-950 shadow-sm">
-          <strong className="font-semibold">Мало данных.</strong> Выполните{" "}
-          <code className="text-xs bg-white/80 px-1.5 py-0.5 rounded border border-amber-200">
-            python -m scripts.seed
-          </code>{" "}
-          в каталоге backend или загрузите CSV на странице «Отчёты».
+        <div className="rounded-2xl border border-amber-200 bg-amber-50/90 px-4 py-3 text-sm text-amber-950 shadow-sm space-y-2 leading-relaxed">
+          <p>
+            <strong className="font-semibold">Мало данных.</strong> Данные появятся после прохождения диагностики. Вы
+            сможете увидеть состояние команды, причины изменений и рекомендации.
+          </p>
+          <p>
+            Для демо выполните{" "}
+            <code className="text-xs bg-white/80 px-1.5 py-0.5 rounded border border-amber-200">
+              python -m scripts.seed
+            </code>{" "}
+            в каталоге backend или загрузите CSV на странице «Отчёты».
+          </p>
         </div>
       )}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -209,9 +217,10 @@ export default function Dashboard() {
           role="button"
           tabIndex={0}
           className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-shadow cursor-pointer"
-          onClick={() => navigate("/reports")}
+          title="Индекс отражает текущее состояние команды и помогает выявить зоны риска и точки роста. Нажмите для расшифровки."
+          onClick={() => { setEssiBreakdownOpen((v) => !v); setEngagementOpen(false); setRiskOpen(false); setProductivityOpen(false); }}
           onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") navigate("/reports");
+            if (e.key === "Enter" || e.key === " ") { setEssiBreakdownOpen((v) => !v); setEngagementOpen(false); setRiskOpen(false); setProductivityOpen(false); }
           }}
         >
           <div className="flex items-start justify-between mb-3">
@@ -256,9 +265,10 @@ export default function Dashboard() {
           role="button"
           tabIndex={0}
           className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-shadow cursor-pointer"
-          onClick={() => navigate("/employees")}
+          title="Степень включённости работников в деятельность организации. Нажмите для подробностей."
+          onClick={() => { setEngagementOpen((v) => !v); setEssiBreakdownOpen(false); setRiskOpen(false); setProductivityOpen(false); }}
           onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") navigate("/employees");
+            if (e.key === "Enter" || e.key === " ") { setEngagementOpen((v) => !v); setEssiBreakdownOpen(false); setRiskOpen(false); setProductivityOpen(false); }
           }}
         >
           <div className="flex items-start justify-between mb-3">
@@ -309,9 +319,10 @@ export default function Dashboard() {
           role="button"
           tabIndex={0}
           className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-shadow cursor-pointer"
-          onClick={() => navigate("/employees")}
+          title="Сотрудники, состояние которых требует дополнительного внимания. Нажмите для подробностей."
+          onClick={() => { setRiskOpen((v) => !v); setEssiBreakdownOpen(false); setEngagementOpen(false); setProductivityOpen(false); }}
           onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") navigate("/employees");
+            if (e.key === "Enter" || e.key === " ") { setRiskOpen((v) => !v); setEssiBreakdownOpen(false); setEngagementOpen(false); setProductivityOpen(false); }
           }}
         >
           <div className="flex items-start justify-between mb-3">
@@ -334,9 +345,6 @@ export default function Dashboard() {
             )}
             .
           </p>
-          <p className="text-xs text-gray-500 mt-1">
-            Кризис (&lt;40): {data.risk_crisis_count} · Зона риска (40–60): {data.risk_zone_count}
-          </p>
           {data.risk_employees_delta_pct != null && (
             <p className="text-xs text-gray-500 mt-1">
               Изменение к прошлому периоду: {data.risk_employees_delta_pct > 0 ? "+" : ""}
@@ -349,10 +357,10 @@ export default function Dashboard() {
           role="button"
           tabIndex={0}
           className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-shadow cursor-pointer"
-          title="Модельный показатель: производный от динамики ESSI (к среднему по месяцам добавлено +10 п.п., макс. 100%). Отдельный опрос продуктивности не проводится."
-          onClick={() => navigate("/reports")}
+          title="Модельный показатель продуктивности на основе ESSI. Нажмите для подробностей."
+          onClick={() => { setProductivityOpen((v) => !v); setEssiBreakdownOpen(false); setEngagementOpen(false); setRiskOpen(false); }}
           onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") navigate("/reports");
+            if (e.key === "Enter" || e.key === " ") { setProductivityOpen((v) => !v); setEssiBreakdownOpen(false); setEngagementOpen(false); setRiskOpen(false); }
           }}
         >
           <div className="flex items-start justify-between mb-3">
@@ -400,62 +408,264 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {engagementOpen && (
       <div className="bg-white rounded-xl border border-gray-200 p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-3">Расшифровка ESSI</h2>
+        <h2 className="text-lg font-semibold text-gray-900 mb-3">Вовлечённость: что измеряется</h2>
         <p className="text-sm text-gray-600 mb-4">
-          ESSI состоит из 5 блоков методики. Главный индекс показывает общую устойчивость, частные индексы —
-          зоны, где нужны точечные действия.
+          Вовлечённость отражает <strong>степень включённости работников</strong> в деятельность организации
+          (Блок 3 методики ESSI — «Трудовая мотивация и вовлечённость»). Показатель формируется на основе
+          пяти диагностических утверждений.
         </p>
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3">
-          {blockMetrics.map((b) => (
-            <div
-              key={b.block_index}
-              className="rounded-xl border border-gray-200 px-3 py-3"
-              title={`Что это: ${b.title}. Зачем: понимать источник динамики ESSI. Что делать: ${b.action_hint}`}
-            >
-              <div className="text-xs text-gray-500">Блок {b.block_index}</div>
-              <div className="text-sm font-medium text-gray-900 line-clamp-2">{b.title}</div>
-              <div className="text-xl font-bold text-[#0052FF] mt-2">{b.value.toFixed(1)}</div>
-              <div className="text-xs text-gray-500 mt-1">{b.interpretation}</div>
-              <div className="text-xs text-[#0052FF] mt-1">Что делать: {b.action_hint}</div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3 mb-4">
+          {[
+            { idx: 1, text: "Понимание влияния своей работы на общий успех организации" },
+            { idx: 2, text: "Интерес к профессиональной деятельности" },
+            { idx: 3, text: "Готовность к дополнительным усилиям ради общего результата" },
+            { idx: 4, text: "Ощущение смысла и значимости своей работы" },
+            { idx: 5, text: "Генерация идей по улучшению работы организации" },
+          ].map((item) => (
+            <div key={item.idx} className="rounded-xl border border-gray-200 px-3 py-3">
+              <div className="text-xs text-gray-500">Утверждение {item.idx}</div>
+              <div className="text-sm text-gray-900 mt-1 leading-relaxed">{item.text}</div>
             </div>
           ))}
         </div>
-        {blockPercentages.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-            <div className="rounded-xl border border-green-100 bg-green-50/70 px-4 py-3">
-              <div className="text-xs uppercase tracking-wide text-green-700 mb-2">Сильные стороны</div>
-              <div className="space-y-1.5">
-                {strongestBlocks.map((b) => (
-                  <div key={`strong-${b.block_index}`} className="text-sm text-green-900">
-                    <span className="font-medium">{b.title}</span>: {b.value.toFixed(1)}%
-                  </div>
-                ))}
-              </div>
+        <div className={`rounded-xl border px-4 py-3 ${
+          data.engagement_pct >= 80
+            ? "border-green-200 bg-green-50/60"
+            : data.engagement_pct >= 60
+              ? "border-gray-200 bg-gray-50/60"
+              : "border-amber-200 bg-amber-50/60"
+        }`}>
+          <div className="flex items-center gap-2 mb-1">
+            <span className={`inline-flex items-center text-xs font-medium rounded-full px-2 py-0.5 ${
+              data.engagement_pct >= 80
+                ? "text-green-700 bg-green-100"
+                : data.engagement_pct >= 60
+                  ? "text-gray-700 bg-gray-200"
+                  : "text-amber-700 bg-amber-100"
+            }`}>
+              {data.engagement_pct >= 80 ? "Высокая вовлечённость" : data.engagement_pct >= 60 ? "Удовлетворительно" : "Зона внимания"}
+            </span>
+            <span className="text-sm font-bold text-gray-900">{data.engagement_pct}%</span>
+          </div>
+          <p className="text-xs text-gray-700 leading-relaxed">
+            {data.engagement_pct >= 80
+              ? "Сотрудники видят смысл своей работы, включены в процессы и готовы прилагать дополнительные усилия. Поддерживайте практики признания и обратной связи."
+              : data.engagement_pct >= 60
+                ? "Вовлечённость на приемлемом уровне, но есть потенциал роста. Обратите внимание на прозрачность целей и возможности для инициативы."
+                : "Вовлечённость ниже ожидаемого. Рекомендуется проверить, ощущают ли сотрудники значимость своей работы и имеют ли возможность влиять на процессы."}
+          </p>
+        </div>
+      </div>
+      )}
+
+      {riskOpen && (
+      <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <h2 className="text-lg font-semibold text-gray-900 mb-3">Уровень риска: интерпретация</h2>
+        <p className="text-sm text-gray-600 mb-4">
+          Уровень риска определяется на основе интегрального индекса ESSI каждого сотрудника.
+          Методика выделяет зоны состояния, которые позволяют выявлять сотрудников, чьё положение
+          в трудовой среде требует внимания руководства.
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 mb-4">
+          <div className="rounded-xl border border-red-200 bg-red-50/50 px-3 py-3">
+            <div className="text-xs text-red-600 font-medium">Кризис</div>
+            <div className="text-lg font-bold text-red-700 mt-1">ESSI &lt; 40</div>
+            <div className="text-xs text-red-800 mt-1.5 leading-relaxed">
+              Критическое снижение устойчивости. Высокий риск потери работоспособности, увольнения. Требуются срочные меры.
             </div>
-            <div className="rounded-xl border border-amber-100 bg-amber-50/70 px-4 py-3">
-              <div className="text-xs uppercase tracking-wide text-amber-700 mb-2">Точки роста</div>
-              <div className="space-y-1.5">
-                {weakestBlocks.map((b) => (
-                  <div key={`weak-${b.block_index}`} className="text-sm text-amber-900">
-                    <span className="font-medium">{b.title}</span>: {b.value.toFixed(1)}%
-                  </div>
-                ))}
-              </div>
+            <div className="mt-2 text-sm font-semibold text-red-900">{data.risk_crisis_count} чел.</div>
+          </div>
+          <div className="rounded-xl border border-amber-200 bg-amber-50/50 px-3 py-3">
+            <div className="text-xs text-amber-600 font-medium">Зона риска</div>
+            <div className="text-lg font-bold text-amber-700 mt-1">ESSI 40–60</div>
+            <div className="text-xs text-amber-800 mt-1.5 leading-relaxed">
+              Социальная устойчивость под угрозой. Факторы среды ограничивают реализацию потенциала. Необходим мониторинг.
+            </div>
+            <div className="mt-2 text-sm font-semibold text-amber-900">{data.risk_zone_count} чел.</div>
+          </div>
+          <div className="rounded-xl border border-gray-200 bg-gray-50/50 px-3 py-3">
+            <div className="text-xs text-gray-600 font-medium">Удовлетворительно</div>
+            <div className="text-lg font-bold text-gray-700 mt-1">ESSI 60–80</div>
+            <div className="text-xs text-gray-700 mt-1.5 leading-relaxed">
+              Приемлемый уровень устойчивости. Есть потенциал улучшения через точечные изменения условий.
+            </div>
+            <div className="mt-2 text-sm font-semibold text-gray-900">
+              {Math.max(0, data.risk_indexed_employees - data.risk_at_risk_total - (data.risk_indexed_employees > 0 ? 0 : 0))} чел.
             </div>
           </div>
-        )}
+          <div className="rounded-xl border border-green-200 bg-green-50/50 px-3 py-3">
+            <div className="text-xs text-green-600 font-medium">Высокая устойчивость</div>
+            <div className="text-lg font-bold text-green-700 mt-1">ESSI ≥ 80</div>
+            <div className="text-xs text-green-800 mt-1.5 leading-relaxed">
+              Условия среды способствуют раскрытию человеческого потенциала. Практики стоит сохранять и масштабировать.
+            </div>
+          </div>
+        </div>
+        <div className={`rounded-xl border px-4 py-3 ${
+          data.risk_at_risk_total === 0
+            ? "border-green-200 bg-green-50/60"
+            : data.risk_at_risk_total <= 2
+              ? "border-amber-200 bg-amber-50/60"
+              : "border-red-200 bg-red-50/60"
+        }`}>
+          <div className="flex items-center gap-2 mb-1">
+            <span className={`inline-flex items-center text-xs font-medium rounded-full px-2 py-0.5 ${
+              data.risk_at_risk_total === 0
+                ? "text-green-700 bg-green-100"
+                : data.risk_at_risk_total <= 2
+                  ? "text-amber-700 bg-amber-100"
+                  : "text-red-700 bg-red-100"
+            }`}>
+              {data.risk_at_risk_total === 0 ? "Нет сотрудников в риске" : `${data.risk_at_risk_total} в зоне риска`}
+            </span>
+            {data.risk_indexed_employees > 0 && (
+              <span className="text-xs text-gray-500">из {data.risk_indexed_employees} с индексом</span>
+            )}
+          </div>
+          <p className="text-xs text-gray-700 leading-relaxed">
+            {data.risk_at_risk_total === 0
+              ? "Все сотрудники с рассчитанным индексом находятся выше порога риска. Продолжайте поддерживать текущие условия труда и социальную среду."
+              : data.risk_crisis_count > 0
+                ? "Есть сотрудники в кризисной зоне (ESSI < 40). Рекомендуется оперативно выявить факторы снижения и принять меры — именно здесь формируются основные потери продуктивности и риски текучести."
+                : "Сотрудники в зоне риска (ESSI 40–60) требуют внимания. Проведите анализ по блокам методики, чтобы определить, какие факторы ограничивают устойчивость."}
+          </p>
+        </div>
       </div>
+      )}
+
+      {productivityOpen && (
+      <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <h2 className="text-lg font-semibold text-gray-900 mb-3">Продуктивность: как рассчитывается</h2>
+        <p className="text-sm text-gray-600 mb-4">
+          Показатель продуктивности — <strong>модельная оценка</strong>, производная от динамики ESSI.
+          Отдельный опрос продуктивности не проводится. Значение формируется как среднее ESSI за период
+          с поправкой +10 п.п. (максимум 100%).
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+          <div className="rounded-xl border border-gray-200 px-3 py-3">
+            <div className="text-xs text-gray-500">Источник данных</div>
+            <div className="text-sm text-gray-900 mt-1 leading-relaxed">
+              Интегральный индекс ESSI по всем 5 блокам методики за выбранный период
+            </div>
+          </div>
+          <div className="rounded-xl border border-gray-200 px-3 py-3">
+            <div className="text-xs text-gray-500">Формула</div>
+            <div className="text-sm text-gray-900 mt-1 leading-relaxed">
+              Среднее ESSI за период + 10 п.п., ограничено 100%
+            </div>
+          </div>
+          <div className="rounded-xl border border-gray-200 px-3 py-3">
+            <div className="text-xs text-gray-500">Экономический смысл</div>
+            <div className="text-sm text-gray-900 mt-1 leading-relaxed">
+              Потери продуктивности: (1 − ESSI/100) × ФОТ × k, где k = 1,5–2,0
+            </div>
+          </div>
+        </div>
+        <div className={`rounded-xl border px-4 py-3 ${
+          data.productivity_pct >= 85
+            ? "border-green-200 bg-green-50/60"
+            : data.productivity_pct >= 70
+              ? "border-gray-200 bg-gray-50/60"
+              : "border-amber-200 bg-amber-50/60"
+        }`}>
+          <div className="flex items-center gap-2 mb-1">
+            <span className={`inline-flex items-center text-xs font-medium rounded-full px-2 py-0.5 ${
+              data.productivity_pct >= 85
+                ? "text-green-700 bg-green-100"
+                : data.productivity_pct >= 70
+                  ? "text-gray-700 bg-gray-200"
+                  : "text-amber-700 bg-amber-100"
+            }`}>
+              {data.productivity_pct >= 85 ? "Высокая продуктивность" : data.productivity_pct >= 70 ? "Умеренная" : "Ниже ожидаемого"}
+            </span>
+            <span className="text-sm font-bold text-gray-900">{data.productivity_pct}%</span>
+          </div>
+          <p className="text-xs text-gray-700 leading-relaxed">
+            {data.productivity_pct >= 85
+              ? "Условия организации способствуют высокой реализации человеческого потенциала. Потери от снижения продуктивности минимальны."
+              : data.productivity_pct >= 70
+                ? "Продуктивность на приемлемом уровне. Улучшение условий по слабым блокам ESSI может повысить показатель."
+                : "Значительная часть потенциала не реализуется. Рекомендуется проанализировать блоки ESSI и выявить ограничивающие факторы."}
+          </p>
+        </div>
+      </div>
+      )}
+
+      {essiBreakdownOpen && (
+      <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <h2 className="text-lg font-semibold text-gray-900 mb-3">Расшифровка ESSI</h2>
+        <p className="text-sm text-gray-600 mb-4">
+          <strong>ESSI</strong> — Employee Social Sustainability Index (Индекс социальной устойчивости работника) —
+          интегральная характеристика состояния работника в трудовой среде, отражающая способность сохранять
+          и реализовывать человеческий потенциал в условиях организации. Состоит из 5 блоков методики.
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3">
+          {blockMetrics.map((b) => {
+            const isStrong = strongestBlocks.some((s) => s.block_index === b.block_index);
+            const isWeak = weakestBlocks.some((w) => w.block_index === b.block_index);
+            return (
+              <div
+                key={b.block_index}
+                className={`rounded-xl border px-3 py-3 ${
+                  isStrong
+                    ? "border-green-200 bg-green-50/50"
+                    : isWeak
+                      ? "border-amber-200 bg-amber-50/50"
+                      : "border-gray-200"
+                }`}
+                title={`Что это: ${b.title}. Зачем: понимать источник динамики ESSI. Что делать: ${b.action_hint}`}
+              >
+                <div className="text-xs text-gray-500">Блок {b.block_index}</div>
+                <div className="text-sm font-medium text-gray-900 line-clamp-2">{b.title}</div>
+                <div className="text-xl font-bold text-[#0052FF] mt-2">{b.value.toFixed(1)}</div>
+                {isStrong && (
+                  <>
+                    <div className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-green-700 bg-green-100 rounded-full px-2 py-0.5">
+                      Сильная сторона
+                    </div>
+                    <div className="text-xs text-green-800 mt-1.5 leading-relaxed">
+                      {b.block_index === 1 && "Условия труда способствуют сохранению баланса и работоспособности."}
+                      {b.block_index === 2 && "Коллектив поддерживает доброжелательную атмосферу и открытый диалог."}
+                      {b.block_index === 3 && "Сотрудники включены в деятельность и видят смысл своей работы."}
+                      {b.block_index === 4 && "Система вознаграждения воспринимается как справедливая и прозрачная."}
+                      {b.block_index === 5 && "Сотрудники чувствуют себя энергичными, стресс не носит критического характера."}
+                    </div>
+                  </>
+                )}
+                {isWeak && (
+                  <>
+                    <div className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-amber-700 bg-amber-100 rounded-full px-2 py-0.5">
+                      Зона внимания
+                    </div>
+                    <div className="text-xs text-amber-800 mt-1.5 leading-relaxed">
+                      {b.block_index === 1 && "Обратите внимание на нагрузку, ресурсы и баланс работы и личной жизни."}
+                      {b.block_index === 2 && "Возможны трудности в коммуникации или конструктивном решении конфликтов."}
+                      {b.block_index === 3 && "Стоит усилить вовлечённость: обратная связь, значимость результатов."}
+                      {b.block_index === 4 && "Пересмотрите прозрачность поощрений и качество обратной связи."}
+                      {b.block_index === 5 && "Риск переутомления или выгорания — проверьте нагрузку и условия."}
+                    </div>
+                  </>
+                )}
+                {!isStrong && !isWeak && (
+                  <div className="text-xs text-gray-500 mt-1">{b.interpretation}</div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="bg-white rounded-xl border border-gray-200 p-6 lg:col-span-2">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Динамика ESSI</h2>
-          <p className="text-sm text-gray-600 mb-3">
-            Изменение состояния сотрудников по сравнению с предыдущим периодом позволяет отслеживать тенденции и
-            своевременно реагировать на изменения.
-          </p>
           {essiData.length === 0 ? (
-            <p className="text-sm text-gray-500">Нет данных для выбранного периода.</p>
+            <p className="text-sm text-gray-500">
+              Данные появятся после прохождения диагностики. Вы сможете увидеть состояние команды, причины изменений и
+              рекомендации.
+            </p>
           ) : (
             <ResponsiveContainer width="100%" height={300}>
               <LineChart data={essiData}>
@@ -502,6 +712,11 @@ export default function Dashboard() {
               </LineChart>
             </ResponsiveContainer>
           )}
+          {essiData.length > 0 && (
+            <p className="text-xs text-gray-500 mt-3 leading-relaxed">
+              График показывает изменение показателя во времени и позволяет отслеживать динамику и эффект действий.
+            </p>
+          )}
         </div>
 
         <div className="bg-white rounded-xl border border-gray-200 p-6">
@@ -542,7 +757,10 @@ export default function Dashboard() {
         <div className="bg-white rounded-xl border border-gray-200 p-6 lg:col-span-3">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Сравнение отделов</h2>
           {departmentData.length === 0 ? (
-            <p className="text-sm text-gray-500">Нет данных по отделам.</p>
+            <p className="text-sm text-gray-500 leading-relaxed">
+              Данные появятся после прохождения диагностики. Вы сможете увидеть состояние команды, причины изменений и
+              рекомендации.
+            </p>
           ) : (
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={departmentData}>
@@ -573,6 +791,11 @@ export default function Dashboard() {
               </BarChart>
             </ResponsiveContainer>
           )}
+          {departmentData.length > 0 && (
+            <p className="text-xs text-gray-500 mt-3 leading-relaxed">
+              Диаграмма сравнивает ESSI по отделам и помогает увидеть различия и приоритеты действий.
+            </p>
+          )}
         </div>
       </div>
 
@@ -594,7 +817,8 @@ export default function Dashboard() {
                 {recentEmployees.length === 0 && (
                   <tr>
                     <td className="py-5 px-4 text-sm text-gray-500" colSpan={5}>
-                      Нет последних обновлений.
+                      Данные появятся после прохождения диагностики. Вы сможете увидеть состояние команды, причины
+                      изменений и рекомендации.
                     </td>
                   </tr>
                 )}
@@ -640,7 +864,10 @@ export default function Dashboard() {
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Рекомендации ИИ</h2>
           <div className="space-y-3">
             {recommendations.length === 0 && (
-              <p className="text-sm text-gray-500">Рекомендаций пока нет.</p>
+              <p className="text-sm text-gray-500 leading-relaxed">
+                Данные появятся после прохождения диагностики. Вы сможете увидеть состояние команды, причины изменений
+                и рекомендации.
+              </p>
             )}
             {recommendations.map((rec) => (
               <Link
